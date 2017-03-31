@@ -2,6 +2,7 @@
 
 import sys
 from rominfo import CTRL, MARKS
+from jis_x_0208 import jis_to_sjis
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -31,7 +32,7 @@ if __name__ == '__main__':
                 # Control code, 1 or 2 bytes
                 elif 1 <= ord(b) <= 4:
                     if ord(b) == 1:
-                        block += '[OrderReturn]'
+                        block += '[LN]'
                     elif ord(b) == 4:
                         block += ' '
                     else:
@@ -46,7 +47,7 @@ if __name__ == '__main__':
                     b2 = f.read(1)
                     jis_string = b + b2
                     print hex(ord(jis_string[0])), hex(ord(jis_string[1]))
-                    sjis_string = jis_string#.decode('shift_jis')
+                    sjis_string = jis_to_sjis[jis_string]
                     #sjis_string = "jis"
                     block += sjis_string
                 # Numbers
