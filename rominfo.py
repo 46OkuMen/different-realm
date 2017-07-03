@@ -1,4 +1,15 @@
+import os
+
+SRC_DISK = os.path.join('original', 'Different Realm - Kuon no Kenja.hdi')
+DEST_DISK = os.path.join('patched', 'Different Realm - Kuon no Kenja.hdi')
+
+FILES = ['MAIN.EXE',]
+
+FILE_BLOCKS = {}
+
+
 """
+    TOS Specification
         2,N     : replaced by strings-table'[N]' (NAME.TOS)
         3,3     : Switch string size Half/Wide
         3,4     : Wait Any Key

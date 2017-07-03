@@ -1,0 +1,124 @@
+Attempting to reassign single-byte hirigana (0x5a-0xac) and single-byte katakana (0xad-0xff) to ASCII text.
+
+6000:49aa 3c5a cmp al, 5a  # true for all kana
+
+6000 49b5 3cad cmp al, ad
+jnb 49c3                   # true for katakana
+
+
+bb2124 mov bx, 2421   <- change this to bb2129. Maps hirigana lil a to ascii !.  See MAIN.EXE 0x4bbb.
+2c5a sub al, 5a
+call 49de
+
+push di
+push cx
+mov di, 49f3
+mov cx, 0009
+repne scasb
+pop cx
+pop di
+jz 49ed
+
+mov [10f8], 01
+ret
+
+jmp 49cb
+
+
+
+
+
+
+
+hiy apidjhi yaapidj jsojakiya p[idhj ]
+
+
+Now looking for cursor stuff.
+
+Cursor is probably stored in ECX. 0401 for the third character of the second line, 0601 for fourth character, etc...
+
+This gets incremented here:
+6000:46b6 022eff10 add ch, [10ff]
+
+6000:10ff is indeed 02.
+This may be hard-coded into MAIN.EXE at 0x12ff...
+	But it gets written to after the window is done. What's writing to it?
+	Couldn't use breakpoints to find it, but I could find "ff10" and "02" next to one another and that's it.
+	6000:4650 ff 10 02 -> ff 10 01, or 0x4851 in MAIN.EXE
+
+This cursor thing appears to affect text in dialogue and the pause menu at least.
+	Need to move the text in the menu that doesn't appear on the very left side of the window. Needs a new starting location...
+
+! = 5a
+A = 7a
+H = 81
+Z = 93
+a = 9a
+e = 9e
+l = a5
+o = a8
+
+**REDACTED**
+So this cursor edit seems to make the previous edit not work. Hmm...
+	It's because the value at [10ff] gets read in deciding what character to read.
+	Unless I just changed the wrong bb2421! Which I did.
+
+The characters appear to be squished horizontally. Maybe I can remap them to the fullwidth characters?
+	That looks... differently bad. (I guess that column is Greek characters anyway.)
+
+Editing that [10ff] value, and how it's loaded, seems to be more trouble than it's worth. Could I try getting that update instruction to read from a different thing, that's just 01?
+Like the GLODIA header. It'd be 022e1a00 add ch, [001f], which is an 01.
+
+
+
+
+ASCII ranges:
+20-2f: punctuation
+30-39: numbers
+3a-40: :;<=>?@
+41-5a: capitals
+5b-60:[\]^_`
+61-7a: lowercase
+7b-7e: {|}~
+
+Ranges I've reclaimed:
+
+16-ac
+
+
+
+TOS ranges:
+01-04: Control code
+05-15: Command
+16-20: Punctuation
+21-4f: 2-byte SJIS
+50-59: Number
+5a-ac: Hirigana
+ad-ff: Katakana
+
+Obviously want to keep control codes and commands the same.
+Don't need to touch katakana since it's out of ascii range.
+
+I should remap 5a to be the actual ASCII 5a, which is Z. (That can be done by changing the original 2421 to 5a29.)
+
+Branch that catches stuff below 21
+
+Branch that catches stuff below 50:
+6000:4685 3c50 cmp al, 50
+7203 jb 468c
+e91903 jmp 49a5
+
+c6067b4b00 mov [4b7b], 00
+600:49aa 3c5a cmp al, 16              Catches stuff above 5a. What if I change this to 50? Works. That frees capital P-Y.
+7307 jnb 49b5                         And what if I change it to 21 later? And then 16?
+
+Now to reassign the 2-byte SJIS branch.
+This is all the stuff that is above 21 but below 50.
+
+6000:467e 3c21 cmp al, 21   <- changing this to 3c16.
+7303 jnb 4685
+e9e100 jmp 4766
+3c50 cmp al, 50
+7203 jb 468c                <- can I just nop this?
+e91903 jmp 49a5
+
