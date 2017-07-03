@@ -114,6 +114,9 @@ for x in range(90, 256):
     code = '\x03' + chr(x)
     CTRL[code] = '[Wait%s]' % (x - 90)
 
-for x in range(0, 256):
+with open('names-edit.pac', 'rb') as f:
+    NAMES = [l.rstrip().replace('\x81\x97', '') for l in f.readlines()]
+
+for x in range(0, 153):
     code = '\x02' + chr(x)
-    CTRL[code] = '[Name%s]' % x
+    CTRL[code] = NAMES[x-1]
