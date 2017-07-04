@@ -30,15 +30,18 @@ MARKS = {
     24: '\x81\x42', # hollow period
     25: '\x81\x43', # comma
     26: '\x81\x44', # period
-    27: '\x82\x45', # middle dot
-    28: '\x82\x46', # colon
-    29: '\x82\x47', # semicolon
-    30: '\x82\x48', # question mark
-    31: '\x82\x49', # exclamation mark
-    32: '\x82\x4a', # dash thingy TODO: Get the real SJIS code for this
+    27: '\x81\x45', # middle dot
+    28: '\x81\x46', # colon
+    29: '\x81\x47', # semicolon
+    30: '\x81\x48', # question mark
+    31: '\x81\x49', # exclamation mark
+    32: '\x81\x5b', # dash thingy TODO: Get the real SJIS code for this
 }
 
 CTRL = {
+    '\x01':     '[LN]',
+    '\x04':     ' ',
+
     '\x03\x03': '[ToggleStrWidth]',
     '\x03\x04': '[Wait]',
     '\x03\x16': '[Mouth16]',
@@ -110,13 +113,17 @@ CTRL = {
     '\x03\x58': '[AnimeSkip]',
 }
 
+
 for x in range(90, 256):
     code = '\x03' + chr(x)
     CTRL[code] = '[Wait%s]' % (x - 90)
 
 with open('names-edit.pac', 'rb') as f:
-    NAMES = [l.rstrip().replace('\x81\x97', '') for l in f.readlines()]
+    NAMES = [l.split('\x81\x97')[0] for l in f.readlines()]
 
 for x in range(0, 153):
     code = '\x02' + chr(x)
     CTRL[code] = NAMES[x-1]
+
+
+inverse_CTRL = {v: k for k, v in CTRL.iteritems()}
