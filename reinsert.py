@@ -1,6 +1,8 @@
 import os
 
-from rominfo import FILE_BLOCKS, SRC_DISK, DEST_DISK
+SRC_DISK = os.path.join('original', 'Different Realm - Kuon no Kenja.hdi')
+DEST_DISK = os.path.join('patched', 'Different Realm - Kuon no Kenja.hdi')
+
 from romtools.disk import Disk, Gamefile, Block
 from romtools.dump import DumpExcel, PointerExcel
 
@@ -27,6 +29,8 @@ for filename in FILES_TO_REINSERT:
         gf.edit(0x487f, b'\x16')      # Change comparison, free up 16-20
         gf.edit(0x4bab, b'\x16')      # Change comparison, free up 16-59
         gf.edit(0x4bba, b'\x5a\x29')  # Change font table math, free up 5a-ff
+
+        gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
 
 
     """

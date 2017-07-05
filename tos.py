@@ -212,7 +212,8 @@ if __name__ == '__main__':
         sys.exit()
 
     if sys.argv[1] == 'decode':
-        if 'NAME.TOS' == sys.argv[2]:
+        print('NAME.TOS' in sys.argv[2])
+        if any([t in sys.argv[2] for t in ('NAME.TOS', 'ITEM.TOS', 'MONSTER.TOS', 'WORD.TOS')]):
             decode_data_tos(sys.argv[2])
         else:
             decode(sys.argv[2])

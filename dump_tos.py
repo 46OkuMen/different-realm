@@ -1,7 +1,7 @@
 import re
 import os
 import xlsxwriter
-from tos import decode
+from tos import decode, decode_data_tos
 
 workbook_FILENAME = 'DiffRealm_workbook.xlsx'
 
@@ -16,11 +16,16 @@ for p in os.walk('original\\DIFFEREN'):
             tos_paths.append(os.path.join(p[0], filename))
 
 ### testing
-#tos_paths = ['original\\DIFFEREN\\TALK\\AT01.TOS']
+#tos_paths = ['original\\DIFFEREN\\databin_files\\NAME.TOS',]
+
+#tos_paths += 'original\\'
 
 for t in tos_paths:
     print t
-    decode(t)
+    if any([d in t for d in ('NAME.TOS', 'ITEM.TOS', 'MONSTER.TOS', 'WORD.TOS')]):
+        decode_data_tos(t)
+    else:
+        decode(t)
 
     with open(t.replace('.TOS', '_parsed.TOS'), 'rb') as f:
         parsed_tos_blocks = f.readlines()
@@ -37,8 +42,8 @@ for t in tos_paths:
         cursor = 0
 
         comment = None
-        if '[weird JIS' in p:
-            comment = "Weird JIS in this block"
+        #if '[weird JIS' in p:
+        #    comment = "Weird JIS in this block"
 
         while cursor < len(p):
             # First byte of SJIS text. Read the next one, too
@@ -47,6 +52,16 @@ for t in tos_paths:
                 sjis_buffer += p[cursor]
                 cursor += 1
                 sjis_buffer += p[cursor]
+
+            # ASCII space, too
+            elif ord(p[cursor]) == 0x20:
+                sjis_buffer += p[cursor]
+
+            elif p[cursor:cursor+4] == '[wei':
+                while p[cursor] != ']':
+                    sjis_buffer += p[cursor]
+                    cursor += 1
+                sjis_buffer += ']'
 
             # End of continuous SJIS string, so add the buffer to the strings and reset buffer
             else:
@@ -82,8 +97,8 @@ for t in tos_paths:
         jp = s[1].decode('shift-jis')
         worksheet.write(row, 1, block)
         worksheet.write(row, 2, jp)
-        if s[2] is not None:
-            worksheet.write(row, 4, s[2])
+        #if s[2] is not None:
+        #    worksheet.write(row, 4, s[2])
         row += 1
 
 workbook.close()
