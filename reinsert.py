@@ -6,22 +6,23 @@ DEST_DISK = os.path.join('patched', 'Different Realm - Kuon no Kenja.hdi')
 from romtools.disk import Disk, Gamefile, Block
 from romtools.dump import DumpExcel, PointerExcel
 
-#DUMP_XLS_PATH = 'appareden_sys_dump.xlsx'
-#POINTER_XLS_PATH = 'crw_pointer_dump.xlsx'
 
-#Dump = DumpExcel(DUMP_XLS_PATH)
-#PtrDump = PointerExcel(POINTER_XLS_PATH)
+DUMP_XLS_PATH = 'DiffRealm_Text.xlsx'
+Dump = DumpExcel(DUMP_XLS_PATH)
+
 OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
-FILES_TO_REINSERT = ['MAIN.EXE',]
+FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS']
+DIETED_FILES = ['CMAKE.BIN',]
 
 for filename in FILES_TO_REINSERT:
-    gf_path = os.path.join('original', filename)
-    if not os.path.isfile(gf_path):
-        OriginalDiffRealm.extract(filename, path_in_disk='REALM', dest_path='original')
+    path_in_disk = os.path.join('REALM', filename)
+    dir_in_disk, just_filename = os.path.split(path_in_disk)
+    gf_path = os.path.join('original', 'REALM', filename)
+    #if not os.path.isfile(gf_path):
+    #    OriginalDiffRealm.extract(filename, path_in_disk='REALM', dest_path='original')
     gf = Gamefile(gf_path, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
-    #pointers = PtrDump.get_pointers(gf)
 
     if filename == 'MAIN.EXE':
         gf.edit(0x48b8, b'\x1a\x00')  # Read cursor incrementer from static 01
@@ -30,7 +31,13 @@ for filename in FILES_TO_REINSERT:
         gf.edit(0x4bab, b'\x16')      # Change comparison, free up 16-59
         gf.edit(0x4bba, b'\x5a\x29')  # Change font table math, free up 5a-ff
 
-        gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
+        #gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
+
+    else:
+        parsed_gf = Gamefile(gf_path.replace('.TOS', '_parsed.TOS'))
+
+        for t in Dump.get_translations(just_filename, include_blank=True):
+            print(parsed_gf.filestring.count(t.japanese))
 
 
     """
@@ -81,4 +88,7 @@ for filename in FILES_TO_REINSERT:
             block.incorporate()
     """
 
-    gf.write(path_in_disk='REALM')
+    gf.write(path_in_disk=dir_in_disk)
+
+for filename in DIETED_FILES:
+    pass
