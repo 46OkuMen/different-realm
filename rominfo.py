@@ -1,7 +1,8 @@
 import os
 
 SRC_DISK = os.path.join('original', 'Different Realm - Kuon no Kenja.hdi')
-DEST_DISK = os.path.join('patched', 'Different Realm - Kuon no Kenja.hdi')
+DEST_DIR = 'patched'
+DEST_DISK = os.path.join(DEST_DIR, 'Different Realm - Kuon no Kenja.hdi')
 
 FILES = ['MAIN.EXE',]
 
@@ -127,3 +128,8 @@ for x in range(0, 153):
 
 
 inverse_CTRL = {v: k for k, v in CTRL.items()}
+
+INITIAL_DOS_AUTOEXEC = """PATH A:\DOS;A:\
+SET TEMP=A:\DOS
+SET DOSDIR=A:\DOS
+"""
