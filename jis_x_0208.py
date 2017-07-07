@@ -1,3 +1,4 @@
+# coding: shift_jis
 jis_to_sjis = {}
 
 with open('jis_x_0208.txt', 'rb') as f:
@@ -17,3 +18,8 @@ with open('jis_x_0208.txt', 'rb') as f:
         jis_string = bytes([(int(jis[:2], 16))]) + bytes([(int(jis[2:], 16))])
 
         jis_to_sjis[jis_string] = sjis_string
+
+#jis_to_sjis[b'\x43\xdc'] = b'\x93\xc1'  # 特, but more like 特務隊バッジ in ITEM.TOS entry 92
+#jis_to_sjis[b'\x2a\x87'] = b'\x'
+
+jis_to_sjis[b'\x2d\x36'] = b'\x87\x55'   #  roman numeral two, specific to sjis 2003

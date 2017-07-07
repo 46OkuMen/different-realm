@@ -74,8 +74,14 @@ def decode_data_tos(filename):
             b = f.read(1)
 
             while b != b'\x00' and b != b'':
-                if 22 <= ord(b) <= 32:
+                # NAMES
+                if ord(b) == 2:
+                    b2 = f.read(1)
+                    block += CTRL[b + b2]
+                # MARKS
+                elif 22 <= ord(b) <= 32:
                     block += MARKS[ord(b)]
+                # JIS
                 elif 33 <= ord(b) <= 79:
                     b2 = f.read(1)
                     jis_string = b + b2
@@ -86,6 +92,7 @@ def decode_data_tos(filename):
                         sjis_string = b"[weird JIS %i %i]" % (jis_string[0], jis_string[1])
                     #sjis_string = "jis"
                     block += sjis_string
+                # Numbers
                 elif 80 <= ord(b) <= 89:
                     # We want to convert it to SJIS, where the numbers start at 82 4f
                     # So, prepend 82 and add 0x31 to the byte value here
@@ -99,6 +106,7 @@ def decode_data_tos(filename):
                     sjis_string = b'\x82' + bytes([(ord(b) + 69)])
                     assert 0x9f <= sjis_string[1] <= 0xf1
                     block += sjis_string
+                # Katakana
                 elif 173 <= ord(b) <= 255:
                     # SJIS katakana starts at 83 40.
                     # So, prepend 83 and subtract 109 from the b value.
@@ -121,7 +129,7 @@ def decode_data_tos(filename):
             f.write(b)
             f.write(b'\n')
 
-def decode(filename):
+def decode_tos(filename):
     """Decode an open TOS file object and write a parsed one."""
     with open(filename, 'rb') as f:
         blocks = []
@@ -154,15 +162,21 @@ def decode(filename):
                 elif 5 <= ord(b) <= 21:
                     cmd_base = ord(b)
                     block += b'[Cmd'
-                    while b != b'\xff':
-                        if cmd_base == 0x5 and ord(b) == 0x39:
-                            print("Map name detected in command")
-                            block += b'MapName'
-                            map_name = True
-                            break
-                        else:
+
+                    # TODO: Need to only detect MapName if it's a 0539 consecutively.
+
+                    next_b = f.read(1)
+                    if cmd_base == 0x5 and ord(next_b) == 0x39:
+                        block += b'MapNmae'
+                        map_name = True
+
+                    b = next_b
+
+                    if not map_name:
+                        while b != b'\xff':
                             block += binascii.hexlify(b)
-                        b = f.read(1)
+                            b = f.read(1)
+
                     block += b']'
                 # Punctuation marks
                 elif 22 <= ord(b) <= 32:
@@ -176,7 +190,7 @@ def decode(filename):
                         sjis_string = jis_to_sjis[jis_string]
                     except KeyError:
                         #print("Couldn't find this char:", hex(ord(jis_string[0])), hex(ord(jis_string[1])))
-                        sjis_string = b"[weird JIS %s %s]" % (binascii.hexlify(jis_string[0]), binascii.hexlify(jis_string[1]))
+                        sjis_string = b"[weird JIS %i %i]" % (jis_string[0], jis_string[1])
                     #sjis_string = "jis"
                     block += sjis_string
                 # Numbers
@@ -191,7 +205,7 @@ def decode(filename):
                     # So, prepend 82 and add 69 to the b value.
                     # 90 + 69 = 159 (0x9f)
                     sjis_string = b'\x82' + bytes([(ord(b) + 69)])
-                    print(sjis_string[1])
+                    #print(sjis_string[1])
                     assert 0x9f <= sjis_string[1] <= 0xf1
                     block += sjis_string
                 elif 0 == ord(b) and map_name:
@@ -229,7 +243,7 @@ if __name__ == '__main__':
         if any([t in sys.argv[2] for t in ('NAME.TOS', 'ITEM.TOS', 'MONSTER.TOS', 'WORD.TOS')]):
             decode_data_tos(sys.argv[2])
         else:
-            decode(sys.argv[2])
+            decode_tos(sys.argv[2])
     elif sys.argv[1] == 'encode':
         encode(sys.argv[2])
     

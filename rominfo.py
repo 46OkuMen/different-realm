@@ -121,6 +121,11 @@ for x in range(90, 256):
 
 with open('names-edit.pac', 'rb') as f:
     NAMES = [l.split(b'\x81\x97')[0] for l in f.readlines()]
+NAMES[21] = b'[PlayerName]'
+
+#for i, n in enumerate(NAMES):
+#    print(i, n.decode('shift-jis'))
+
 
 for x in range(0, 153):
     code = b'\x02' + bytes([x])
