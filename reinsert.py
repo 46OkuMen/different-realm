@@ -89,21 +89,23 @@ for filename in FILES_TO_REINSERT:
     gf.write(path_in_disk=dir_in_disk)
 
 """
-    Some files are compressed with DIET.EXE, a DOS executable compressor.
-    To edit these files:
-        1) Edit the decompressed version, which is already in 'original'.
-        2) Load them into a DOS HDI with DIET.XEXE in the root.
-        3) Add a DIET.EXE command to an AUTOEXEC.BAT script, which is loaded onto the HDI.
-        4) Open the HDI in Neko Project II, which compresses them.
-        5) Extract them from the DOS HDI to the 'patched' folder.
-        6) Insert them into the final Different Realm HDI.
-"""
+
+
+#    Some files are compressed with DIET.EXE, a DOS executable compressor.
+#    To edit these files:
+#        1) Edit the decompressed version, which is already in 'original'.
+#        2) Load them into a DOS HDI with DIET.XEXE in the root.
+#        3) Add a DIET.EXE command to an AUTOEXEC.BAT script, which is loaded onto the HDI.
+#        4) Open the HDI in Neko Project II, which compresses them.
+#        5) Extract them from the DOS HDI to the 'patched' folder.
+#        6) Insert them into the final Different Realm HDI.
+
 
 # TODO: Need to use DIETX.COM, which only works on the provided THD image.
 #   Modify this code to use that disk instead.
     # The new issue here is that the disk won't seem to open in NDC...
 
-DOS = Disk('Different Realms Source\\PROJECT\\HD-DosRL.thd')
+DOS = Disk('np2\\Project.hdi')
 with open('np2\\AUTOEXEC.BAT', 'w') as f:
     f.write(INITIAL_DOS_AUTOEXEC)
     for df in DIETED_FILES:
@@ -126,9 +128,11 @@ for filename in DIETED_FILES:
 
     DOS.insert(edited_decompressed_file, path_in_disk='', delete_necessary=False)
 
-os.system('Different Realms Source\\PROJECT\\np2nt.exe')
-os.system('taskkill /IM np2nt.exe')
+os.system('np2\\np21debug_x86.exe')
+os.system('taskkill /IM np21debug_x86.exe')
 
 for filename in DIETED_FILES:
     DOS.extract(filename, dest_path='patched')
     TargetDiffRealm.insert(edited_compressed_file, path_in_disk='REALM')
+
+"""

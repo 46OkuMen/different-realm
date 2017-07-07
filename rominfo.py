@@ -129,7 +129,9 @@ for x in range(0, 153):
 
 inverse_CTRL = {v: k for k, v in CTRL.items()}
 
-INITIAL_DOS_AUTOEXEC = """PATH A:\DOS;A:\
-SET TEMP=A:\DOS
-SET DOSDIR=A:\DOS
+INITIAL_DOS_AUTOEXEC = """PATH=A:\DOS;A:\BIN;A:\TOOL
+ksh
+
+SET HOME=a:/home
+rem NP2TOOL\HOSTDRV D:
 """
