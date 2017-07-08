@@ -6,7 +6,7 @@ from rominfo import CTRL, inverse_CTRL, MARKS
 from jis_x_0208 import jis_to_sjis
 import binascii
 
-control_words = ('Voice', 'Anime', 'Face', 'Mouth', 'Spaces', 'Toggle', 'Wait', 'Switch', 'TxtSpd', 'Clear', 'Color', 'LN')
+control_words = ('Voice', 'Anime', 'Face', 'Mouth', 'Spaces', 'Toggle', 'Wait', 'Input', 'Switch', 'TxtSpd', 'Clear', 'Color', 'LN')
 
 placeholder = 'Placeholder, placeholder, placeholder, placeholder'
 

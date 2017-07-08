@@ -8,8 +8,20 @@ workbook_FILENAME = 'DiffRealm_Text.xlsx'
 workbook = xlsxwriter.Workbook(workbook_FILENAME)
 header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
 
-tos_paths = []
+useful_ctrl_codes = [b'LN', b'Wait', b'Color', b'PlayerName', b'TxtSpd',
+                     b'Spaces', b'Voice', b'Toggle', b'Mouth', b'weird']
 
+garbage = ['て[LN]', 'て', 'てン', 'て[LN]巧砂ン', 'て[LN]沙執ン', 'ン', 'て[LN]患偽ン',
+           'て[LN]慨偽ン', 'て[LN]係妓ン', 'て[LN]偽係ン', 'て[LN]品僕ン', 'て[LN]緬様ン',
+           'て[LN]８９７６ン', 'て[LN]６７８９ン', 'て[LN]ぁ９８７ン', 'て[LN]７８９ぁン', 
+           'て[LN]ぃあぁ９ン', 'てフェダイン特務隊唾', 'ンでユン', 'ヰでヱン', 'ンでャン', '[LN]力０１ン',
+           '[LN]０１２３ン', '[LN]５３４２ン', 'ンでデン', 'て[LN]渦', 'て[PlayerName]、。　ン',
+           '渦ン', '[VoiceTone1E][TxtSpd2f][Spaces05]', '[VoiceTone1E][TxtSpd2f][Spaces04]',
+           '[Color7]', 'て[LN]渦[weird JIS 47 48]ン', 'て[LN][weird JIS 47 48]渦ン',
+           'て[LN][weird JIS 46 46][weird JIS 47 48]ン', 'て[LN][weird JIS 45 45][weird JIS 45 45]ン',
+           'てフェダイン特務隊唾[weird JIS 68 255]', 'でンでンでンン', 'でパ[weird JIS 39 21]ン',]
+
+tos_paths = []
 for p in os.walk('original\\REALM'):
     for filename in p[2]:
         if filename.endswith(".TOS") and "parsed" not in filename:
@@ -19,6 +31,8 @@ for p in os.walk('original\\REALM'):
 #tos_paths = ['original\\REALM\\MAP\\AM04.TOS',]
 
 #tos_paths += 'original\\'
+
+file_count = 0
 
 for t in tos_paths:
     print(t)
@@ -38,7 +52,7 @@ for t in tos_paths:
         try:
             block_num = int(p.split(b"}")[0].lstrip(b'{'))
         except ValueError:
-            block_num = b"?"
+            block_num = 0
 
         if b'wei' in p:
             print("Weird JIS in %s %s" % (t, block_num))
@@ -47,27 +61,29 @@ for t in tos_paths:
         cursor = 0
 
         comment = None
+        split_here = False
 
         while cursor < len(p):
             # First byte of SJIS text. Read the next one, too
-            #print(sjis_buffer)
             if 0x80 <= p[cursor] <= 0x9f or 0xe0 <= p[cursor] <= 0xef:
-                # TODO: Need to do some better type conversions starting here.
                 sjis_buffer += bytes([p[cursor]])
                 cursor += 1
                 total_cursor += 1
                 sjis_buffer += bytes([p[cursor]])
 
             # TODO: Would be nice to include color control codes and such
-            ## Control code, 1 or 2 bytes
-            #elif 1 <= p[cursor] <= 4:
-            #    if p[cursor] == 1:
-            #        sjis_buffer += b'[LN]'
-            #    elif p[cursor] == 4:
-            #        p[cursor] += b' '
-            #    else:
-            #        sjis_buffer += CTRL[bytes([p[cursor]]) + bytes([p[cursor+1]])]
-            #        cursor += 1
+            elif bytes([p[cursor]]) == b'[':
+                ctrl_code = b''
+                while bytes([p[cursor]]) != b']':
+                    ctrl_code += bytes([p[cursor]])
+                    cursor += 1
+                    total_cursor += 1
+                ctrl_code += bytes([p[cursor]])
+                if any([cc in ctrl_code for cc in useful_ctrl_codes]):
+                    sjis_buffer += ctrl_code
+                else:
+                    #print("Splitting at %s" % ctrl_code)
+                    split_here = True
 
             # ASCII space, too
             elif p[cursor] == 0x20:
@@ -83,18 +99,31 @@ for t in tos_paths:
             # End of continuous SJIS string, so add the buffer to the strings and reset buffer
             else:
                 if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
-                    sjis_strings.append((total_cursor, block_num, sjis_buffer))
+                    sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
                 sjis_buffer = b""
                 sjis_buffer_start = cursor+1
+
+            # Ran into an unimportant control code
+            if split_here:
+                if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
+                    sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
+                sjis_buffer = b""
+                sjis_buffer_start = cursor+1
+                split_here = False
+
             cursor += 1
             total_cursor += 1
 
         # Catch anything left after exiting the loop
         if sjis_buffer:
-            sjis_strings.append((sjis_buffer_start, sjis_buffer))
+            sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
+
+    sjis_strings = [s for s in sjis_strings if s[2].decode('shift_jis_2004') not in garbage]
+
 
     if sjis_strings:
         worksheet = workbook.add_worksheet(os.path.split(t)[1])
+        file_count += 1
 
         worksheet.set_column('B:B', 5)
         worksheet.set_column('C:C', 60)
@@ -108,37 +137,26 @@ for t in tos_paths:
         worksheet.write(0, 6, 'Comments', header)
         row = 1
         for s in sjis_strings:
+
             loc = '0x' + hex(s[0]).lstrip('0x').zfill(4)
             block = str(s[1])
             jp = s[2].decode('shift_jis_2004')
-            #print(type(loc), type(block), type(jp))
+        
+            if jp in garbage:
+                continue
+
             worksheet.write(row, 0, loc)
             worksheet.write(row, 1, block)
             worksheet.write(row, 2, jp)
-            #if s[2] is not None:
-            #    worksheet.write(row, 4, s[2])
+            if s[3] is not None:
+                worksheet.write(row, 6, s[2])
             row += 1
     else:
         print("%s has no game text" % t)
 
 workbook.close()
+print("%s files" % file_count)
 
 # TODO:
-# 1) What is with the block-100 "te" in a bunch of the AM.TOS files?
-    # It's "te"[LN], which is the interpreted bytes 7f 01.
-# 2) Still need to identify mystery kanji.
 # 7) Why the initial hirigana "ka" at the beginning of the databin TOS files?
-# 8) Some stuff in the .PAC doesn't match what's in the final .TOS.
-    # 特ッジ (from TOS) vs. 特務隊バッジ (from PAC)
-        # Whoops, that's just from when I forgot to include NAMEs in the data tos's.
-
-# 9) Some numbers are getting dropped in HELP.TOS. What's going on there?
-    # Those are fine, all the ones that matter have made it in.
-
-# Weird JIS in BT14.TOS:
-    # The commands in BT14 are a bit strangely formed.
-    # 00 06 - block 06
-    # 05 21 80 FF - some commmand
-    # 80 DD 27 15 FF - 
-        # "FIGHT OFF,BOSS+93,39,21:" has 27 15 as two of its numbers.
-# Weird JIS in BM12.TOS:
+# 11) I need to spend more time with the NAMEs to make sure they are accurate.

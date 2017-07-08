@@ -88,7 +88,7 @@ for filename in FILES_TO_REINSERT:
 
     gf.write(path_in_disk=dir_in_disk)
 
-"""
+
 
 
 #    Some files are compressed with DIET.EXE, a DOS executable compressor.
@@ -105,7 +105,7 @@ for filename in FILES_TO_REINSERT:
 #   Modify this code to use that disk instead.
     # The new issue here is that the disk won't seem to open in NDC...
 
-DOS = Disk('np2\\Project.hdi')
+DOS = Disk('Different Realms Source\\PROJECT\\HD-DosRL-NHC.hdi')
 with open('np2\\AUTOEXEC.BAT', 'w') as f:
     f.write(INITIAL_DOS_AUTOEXEC)
     for df in DIETED_FILES:
@@ -128,11 +128,10 @@ for filename in DIETED_FILES:
 
     DOS.insert(edited_decompressed_file, path_in_disk='', delete_necessary=False)
 
-os.system('np2\\np21debug_x86.exe')
-os.system('taskkill /IM np21debug_x86.exe')
+os.system('Different Realms Source\\PROJECT\\np2nt.exe')
+os.system('taskkill /IM np2nt.exe')
 
 for filename in DIETED_FILES:
     DOS.extract(filename, dest_path='patched')
     TargetDiffRealm.insert(edited_compressed_file, path_in_disk='REALM')
 
-"""

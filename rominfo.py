@@ -44,7 +44,7 @@ CTRL = {
     b'\x04':     ' ',
 
     b'\x03\x03': b'[ToggleStrWidth]',
-    b'\x03\x04': b'[Wait]',
+    b'\x03\x04': b'[Input]',
     b'\x03\x16': b'[Mouth16]',
     b'\x03\x17': b'[Mouth17]',
     b'\x03\x18': b'[Mouth18]',

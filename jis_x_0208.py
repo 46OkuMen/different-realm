@@ -23,3 +23,5 @@ with open('jis_x_0208.txt', 'rb') as f:
 #jis_to_sjis[b'\x2a\x87'] = b'\x'
 
 jis_to_sjis[b'\x2d\x36'] = b'\x87\x55'   #  roman numeral two, specific to sjis 2003
+
+sjis_to_jis = {v: k for k, v in jis_to_sjis.items()}
