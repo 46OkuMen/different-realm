@@ -1,9 +1,8 @@
 import os
 from shutil import copyfile
-from rominfo import SRC_DISK, DEST_DISK, DEST_DIR, INITIAL_DOS_AUTOEXEC
+from rominfo import SRC_DISK, DEST_DISK
 from romtools.disk import Disk, Gamefile, Block
-from romtools.dump import DumpExcel, PointerExcel
-
+from romtools.dump import DumpExcel
 
 DUMP_XLS_PATH = 'DiffRealm_Text.xlsx'
 Dump = DumpExcel(DUMP_XLS_PATH)
@@ -31,11 +30,30 @@ for filename in FILES_TO_REINSERT:
 
         #gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
 
+        pass
+
     else:
         parsed_gf = Gamefile(gf_path.replace(b'.TOS', b'_parsed.TOS'))
 
         for t in Dump.get_translations(just_filename, include_blank=True):
             print(parsed_gf.filestring.count(t.japanese))
+
+    gf.write(path_in_disk=dir_in_disk)
+
+"""
+    DIETED_FILES are compressed with DIETX.EXE, a DOS utility.
+    They need to be edited (manually or with a script) and placed in DRSource/PROJECT/HD-DosRL.thd.
+    There, run:
+        DIETX filename
+    Now extract the compressed file and add it to patched/dieted_edited.
+    It will be inserted as is at runtime.
+"""
+for filename in DIETED_FILES:
+    gf_path = os.path.join('patched', 'dieted_edited', filename)
+    # TODO: Don't hardcode the path_in_disk.
+
+    gf = Gamefile(gf_path, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
+    gf.write(path_in_disk='REALM')
 
 
     """
@@ -86,7 +104,7 @@ for filename in FILES_TO_REINSERT:
             block.incorporate()
     """
 
-    gf.write(path_in_disk=dir_in_disk)
+    
 
 
 
@@ -104,34 +122,3 @@ for filename in FILES_TO_REINSERT:
 # TODO: Need to use DIETX.COM, which only works on the provided THD image.
 #   Modify this code to use that disk instead.
     # The new issue here is that the disk won't seem to open in NDC...
-
-DOS = Disk('Different Realms Source\\PROJECT\\HD-DosRL-NHC.hdi')
-with open('np2\\AUTOEXEC.BAT', 'w') as f:
-    f.write(INITIAL_DOS_AUTOEXEC)
-    for df in DIETED_FILES:
-        f.write('DIETX %s' % df)
-
-DOS.insert('np2\\AUTOEXEC.BAT', path_in_disk='', delete_necessary=False)
-
-for filename in DIETED_FILES:
-    original_decompressed_file = os.path.join('original', 'decompressed', filename)
-    edited_decompressed_file = os.path.join('patched', 'decompressed', filename)
-    edited_compressed_file = os.path.join('patched', filename)
-
-    copyfile(original_decompressed_file, edited_decompressed_file)
-
-    gf = Gamefile(edited_decompressed_file, dest_disk=TargetDiffRealm)
-
-    if filename == 'CMAKE.BIN':
-        gf.edit(0xa07, b'\x10\xeb\x90')     # name entry cursor illusion
-    gf.write(skip_disk=True)
-
-    DOS.insert(edited_decompressed_file, path_in_disk='', delete_necessary=False)
-
-os.system('Different Realms Source\\PROJECT\\np2nt.exe')
-os.system('taskkill /IM np2nt.exe')
-
-for filename in DIETED_FILES:
-    DOS.extract(filename, dest_path='patched')
-    TargetDiffRealm.insert(edited_compressed_file, path_in_disk='REALM')
-
