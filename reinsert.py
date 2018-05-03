@@ -3,6 +3,7 @@ from shutil import copyfile
 from rominfo import SRC_DISK, DEST_DISK
 from romtools.disk import Disk, Gamefile, Block
 from romtools.dump import DumpExcel
+import tos
 
 DUMP_XLS_PATH = 'DiffRealm_Text.xlsx'
 Dump = DumpExcel(DUMP_XLS_PATH)
@@ -10,7 +11,7 @@ Dump = DumpExcel(DUMP_XLS_PATH)
 OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
-FILES_TO_REINSERT = ['MAIN.EXE']
+FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS']
 DIETED_FILES = ['CMAKE.BIN',]
 
 for filename in FILES_TO_REINSERT:
@@ -33,10 +34,16 @@ for filename in FILES_TO_REINSERT:
         pass
 
     else:
-        parsed_gf = Gamefile(gf_path.replace(b'.TOS', b'_parsed.TOS'))
+        parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
+        parsed_gf = Gamefile(parsed_filename)
 
-        for t in Dump.get_translations(just_filename, include_blank=True):
-            print(parsed_gf.filestring.count(t.japanese))
+        #for t in Dump.get_translations(just_filename, include_blank=True):
+        #    print(parsed_gf.filestring.count(t.japanese))
+
+        # Temporary dump encoding without paying attention to any translations.
+        tos.encode(parsed_filename)
+
+
 
     gf.write(path_in_disk=dir_in_disk)
 

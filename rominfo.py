@@ -40,8 +40,8 @@ MARKS = {
 }
 
 CTRL = {
-    b'\x01':     '[LN]',
-    b'\x04':     ' ',
+    b'\x01':     b'[LN]',
+    b'\x04':     b' ',
 
     b'\x03\x03': b'[ToggleStrWidth]',
     b'\x03\x04': b'[Input]',
@@ -133,10 +133,3 @@ for x in range(0, 153):
 
 
 inverse_CTRL = {v: k for k, v in CTRL.items()}
-
-INITIAL_DOS_AUTOEXEC = """PATH=A:\DOS;A:\BIN;A:\TOOL
-ksh
-
-SET HOME=a:/home
-rem NP2TOOL\HOSTDRV D:
-"""

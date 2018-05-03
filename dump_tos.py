@@ -24,7 +24,7 @@ garbage = ['て[LN]', 'て', 'てン', 'て[LN]巧砂ン', 'て[LN]沙執ン', '
 tos_paths = []
 for p in os.walk('original\\REALM'):
     for filename in p[2]:
-        if filename.endswith(".TOS") and "parsed" not in filename:
+        if filename.endswith(".TOS") and "parsed" not in filename and "encoded" not in filename:
             tos_paths.append(os.path.join(p[0], filename))
 
 ### testing

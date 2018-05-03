@@ -1,31 +1,30 @@
 # .TOS file parser, based on documentation from Hoee Qwata
 
-import codecs
 import sys
 from rominfo import CTRL, inverse_CTRL, MARKS
 from jis_x_0208 import jis_to_sjis
 import binascii
 
-control_words = ('Voice', 'Anime', 'Face', 'Mouth', 'Spaces', 'Toggle', 'Wait', 'Input', 'Switch', 'TxtSpd', 'Clear', 'Color', 'LN')
-
-placeholder = 'Placeholder, placeholder, placeholder, placeholder'
-
+control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'Toggle',
+                 b'Wait', b'Input', b'Switch', b'TxtSpd', b'Clear', b'Color',
+                 b'LN')
 
 def encode(filename):
-    with codecs.open(filename, 'r', encoding='shift_jis') as f:
-        blocks = [b.rstrip() for b in f.readlines()]
+    with open(filename, 'rb') as f:
+        blocks = [l.rstrip(b'\n') for l in f.readlines()]
 
     for b in blocks:
-        #print b
+        print(b)
         try:
-            block_num = b.split(b'}')[0].lstrip(b'{')
+            block_num = b.split(b'}')[0]
+            block_num = block_num.lstrip(b'{')
             block_num = int(block_num)
         except ValueError:
             continue
 
     block_count = block_num
 
-    with open(filename.replace(b'_parsed.TOS', b'_encoded.TOS'), 'wb+') as f:
+    with open(filename.replace('_parsed.TOS', '_encoded.TOS'), 'wb+') as f:
         # Write header
         f.write(b'tmp.PA')
         f.write(bytes([(block_count)]))
@@ -37,32 +36,47 @@ def encode(filename):
             f.write(bytes([block_num]))
 
             block_body = b''.join(b.split(b'}')[1:])
+            print("Block body:", block_body)
 
             while len(block_body) > 0:
-                if block_body[0] == b'[':
-                    ctrl = block_body.split(b']')[0] + ']'
-                    block_body = block_body[len(ctrl):]
-                    print("ctrl:", ctrl)
-                    if 'Cmd' in ctrl:
-                        ctrl = ctrl.strip(b'[]Cmd')
-                        while ctrl:
-                            f.write(bytes([int(ctrl[:2], 16)]))
-                            ctrl = ctrl[2:]
-                        f.write(bytes([0xff]))
-                    elif any([c in ctrl for c in control_words]):
-                        f.write(inverse_CTRL[ctrl])
-                else:
-                    # All the text should be double-width.
-                    text = ''
-                    while len(block_body) > 0 and block_body[0] != '[':
-                        #print "block_body[0], %s, is not [" % block_body[0]
-                        text += block_body[0]
-                        block_body = block_body[1:]
-                        #print block_body
-                    print("text:", text)
-                    f.write("Text")
+                if block_body[0].to_bytes(1, 'little') == b'[':
+                    # Literal code command.
+                    if block_body.startswith(b'[Cmd'):
+                        block_body = block_body[4:]
+                        ctrl = b''
+                        # Read until the end of the [CmdABCDEF], two bytes at a time.
+                        while block_body[0].to_bytes(1, 'little') == b']':
+                            # Read two more bytes
+                            ctrl += block_body[0].to_bytes(1, 'little')
+                            ctrl += block_body[1].to_bytes(1, 'little')
+                            block_body = block_body[2:]
 
-            f.write(bytes([0]))
+                        # Get rid of that last end-bracket
+                        block_body = block_body[1:]
+
+                        print("Need to write these bytes:", ctrl)
+                        print("And also ff")
+
+                    else:
+                        ctrl = block_body.split(b']')[0] + b']'
+                        block_body = block_body[len(ctrl):]
+
+                        if any([c in ctrl for c in control_words]):
+                            f.write(inverse_CTRL[ctrl])
+
+                else:
+                    text = b''
+                    while len(block_body) > 0 and block_body[0].to_bytes(1, 'little') != b'[':
+                        # TODO: We're considering all text as fullwidth for now.
+                        # Otherwise text like 81 5b has a collision with 5b, aka b'['.
+                        # Once there's no fullwidth text, we can read it normally since it's all just ASCII ranges.
+                        text += block_body[0].to_bytes(1, 'little')
+                        text += block_body[1].to_bytes(1, 'little')
+                        block_body = block_body[2:]
+                    print("Text:", text)
+                    print("Need to write that text.")
+            #f.write(bytes([0]))
+
 
 def decode_data_tos(filename):
     with open(filename, 'rb') as f:
@@ -163,16 +177,16 @@ def decode_tos(filename):
                     cmd_base = ord(b)
                     block += b'[Cmd'
 
-                    # TODO: Need to only detect MapName if it's a 0539 consecutively.
-
                     next_b = f.read(1)
                     if cmd_base == 0x5 and ord(next_b) == 0x39:
-                        block += b'MapNmae'
+                        block += b'MapName'
                         map_name = True
 
-                    b = next_b
 
                     if not map_name:
+                        # Gotta include that first byte of the command
+                        block += binascii.hexlify(b)
+                        b = next_b
                         while b != b'\xff':
                             block += binascii.hexlify(b)
                             b = f.read(1)

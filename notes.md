@@ -3,6 +3,8 @@
 * You can view .IMG files by using Hoee's 'winp.exe' utility. ("WinPac")
 	* ```winp opc01.img```
 	* Just like MLD, puts it in the top left.
+	* ``` winp opc01.img```
+		* Displays compression info, how many images are packed into it, etc.
 * You can view .ZIM files with kload.exe:
 	* ```kload realm01.zim```
 		* Kload and zimload appear to just be renamed versions of each other.
