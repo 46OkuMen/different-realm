@@ -35,30 +35,42 @@ def encode(filename):
             print("Block", block_num)
             f.write(bytes([block_num]))
 
-            block_body = b''.join(b.split(b'}')[1:])
+            # Gotta join the pieces with } again, or some SJIS will be disrupted
+            block_body = b'}'.join(b.split(b'}')[1:])
             print("Block body:", block_body)
+
+            # Look for 83-doubling, which happens sometime for some reason
+            # (This was due to the }-splitting issue, so seems to be fixed now)
+            #print(block_body.count(b'\x83\x83'))
+            #block_body = block_body.replace(b'\x83\x83', b'\x83')
 
             while len(block_body) > 0:
                 if block_body[0].to_bytes(1, 'little') == b'[':
                     # Literal code command.
                     if block_body.startswith(b'[Cmd'):
                         block_body = block_body[4:]
-                        ctrl = b''
+                        cmd = b''
                         # Read until the end of the [CmdABCDEF], two bytes at a time.
-                        while block_body[0].to_bytes(1, 'little') == b']':
+                        while block_body[0].to_bytes(1, 'little') != b']':
                             # Read two more bytes
-                            ctrl += block_body[0].to_bytes(1, 'little')
-                            ctrl += block_body[1].to_bytes(1, 'little')
+                            #print(block_body)
+                            cmd += block_body[0].to_bytes(1, 'little')
+                            cmd += block_body[1].to_bytes(1, 'little')
                             block_body = block_body[2:]
 
                         # Get rid of that last end-bracket
                         block_body = block_body[1:]
+                        print("Cmd", cmd)
+                        #print(bytearray.fromhex(cmd))
+                        f.write(bytearray.fromhex(cmd.decode()))
+                        f.write(b'\xff')
 
-                        print("Need to write these bytes:", ctrl)
-                        print("And also ff")
+                        #print("Need to write these bytes:", cmd)
+                        #print("And also ff")
 
                     else:
                         ctrl = block_body.split(b']')[0] + b']'
+                        print("Ctrl:", ctrl)
                         block_body = block_body[len(ctrl):]
 
                         if any([c in ctrl for c in control_words]):
@@ -66,16 +78,24 @@ def encode(filename):
 
                 else:
                     text = b''
+                    #print([hex(b) for b in block_body])
                     while len(block_body) > 0 and block_body[0].to_bytes(1, 'little') != b'[':
                         # TODO: We're considering all text as fullwidth for now.
                         # Otherwise text like 81 5b has a collision with 5b, aka b'['.
                         # Once there's no fullwidth text, we can read it normally since it's all just ASCII ranges.
+                        #print(block_body.decode('shift-jis'))
                         text += block_body[0].to_bytes(1, 'little')
                         text += block_body[1].to_bytes(1, 'little')
                         block_body = block_body[2:]
-                    print("Text:", text)
-                    print("Need to write that text.")
-            #f.write(bytes([0]))
+                        #print([hex(t) for t in text])
+                        #print([hex(b) for b in block_body])
+                        #try:
+                        #    print(block_body[0].to_bytes(1, 'little'))
+                        #except IndexError:
+                        #    print("Block over")
+                    print("Text:", text.decode('shift-jis'))
+                    f.write(b"Text")
+            f.write(bytes([0]))
 
 
 def decode_data_tos(filename):
