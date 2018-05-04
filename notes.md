@@ -19,5 +19,15 @@
 * png2win output (compression type 10) doesn't want to show up ingame, even if WINP can read it...
 	* Can't seem to get anything with compression type 10 to show up ingame, anyway.
 
+## DIETing
+*    Some files are compressed with DIET.EXE, a DOS executable compressor.
+*    To edit these files:
+*        1) Edit the decompressed version, which is already in 'original'.
+*        2) Load them into a DOS HDI with DIET.XEXE in the root.
+*        3) Add a DIET.EXE command to an AUTOEXEC.BAT script, which is loaded onto the HDI.
+*        4) Open the HDI in Neko Project II, which compresses them.
+*        5) Extract them from the DOS HDI to the 'patched' folder.
+*        6) Insert them into the final Different Realm HDI.
+
 ## Fun stuff
 * /home/TTT/rlmdb.exe has lots of debug menus for editing item, monster data, etc.

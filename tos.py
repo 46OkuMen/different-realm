@@ -1,6 +1,7 @@
 # .TOS file parser, based on documentation from Hoee Qwata
 
 import sys
+from romtools.utils import SJIS_FIRST_BYTES
 from rominfo import CTRL, inverse_CTRL, MARKS
 from jis_x_0208 import jis_to_sjis
 import binascii
@@ -77,23 +78,20 @@ def encode(filename, dest_filename=None):
                     text = b''
                     #print([hex(b) for b in block_body])
                     while len(block_body) > 0 and block_body[0].to_bytes(1, 'little') != b'[':
-                        # TODO: We're considering all text as fullwidth for now.
-                        # Otherwise text like 81 5b has a collision with 5b, aka b'['.
-                        # Once there's no fullwidth text, we can read it normally since it's all just ASCII ranges.
-                        #print(block_body.decode('shift-jis'))
-
-                        # Still ASCII spaces though.
-                        if block_body[0] == 0x20:
+                        # Fullwidth text/SJIS should be read 2 bytes at a time.
+                        if block_body[0] in SJIS_FIRST_BYTES:
+                            text += block_body[0].to_bytes(1, 'little')
+                            text += block_body[1].to_bytes(1, 'little')
+                            block_body = block_body[2:]
+                        else:
                             text += block_body[0].to_bytes(1, 'little')
                             block_body = block_body[1:]
-                            continue
-
-                        text += block_body[0].to_bytes(1, 'little')
-                        text += block_body[1].to_bytes(1, 'little')
-                        block_body = block_body[2:]
 
                     print("Text:", text.decode('shift-jis'))
-                    f.write(b"Text")
+                    if b'\x82' in text or b'\x81' in text:
+                        f.write(b"Text")
+                    else:
+                        f.write(text)
             f.write(bytes([0]))
 
 
