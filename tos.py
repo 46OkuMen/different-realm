@@ -9,7 +9,14 @@ control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'Toggle',
                  b'Wait', b'Input', b'Switch', b'TxtSpd', b'Clear', b'Color',
                  b'LN')
 
-def encode(filename):
+
+def encode(filename, dest_filename=None):
+    """
+        Re-encodes a parsed TOS file.
+    """
+    if dest_filename is None:
+        dest_filename = filename.replace('_parsed.TOS', '_encoded.TOS')
+
     with open(filename, 'rb') as f:
         blocks = [l.rstrip(b'\n') for l in f.readlines()]
 
@@ -24,7 +31,7 @@ def encode(filename):
 
     block_count = block_num
 
-    with open(filename.replace('_parsed.TOS', '_encoded.TOS'), 'wb+') as f:
+    with open(dest_filename, 'wb+') as f:
         # Write header
         f.write(b'tmp.PA')
         f.write(bytes([(block_count)]))
@@ -39,11 +46,6 @@ def encode(filename):
             block_body = b'}'.join(b.split(b'}')[1:])
             print("Block body:", block_body)
 
-            # Look for 83-doubling, which happens sometime for some reason
-            # (This was due to the }-splitting issue, so seems to be fixed now)
-            #print(block_body.count(b'\x83\x83'))
-            #block_body = block_body.replace(b'\x83\x83', b'\x83')
-
             while len(block_body) > 0:
                 if block_body[0].to_bytes(1, 'little') == b'[':
                     # Literal code command.
@@ -53,7 +55,6 @@ def encode(filename):
                         # Read until the end of the [CmdABCDEF], two bytes at a time.
                         while block_body[0].to_bytes(1, 'little') != b']':
                             # Read two more bytes
-                            #print(block_body)
                             cmd += block_body[0].to_bytes(1, 'little')
                             cmd += block_body[1].to_bytes(1, 'little')
                             block_body = block_body[2:]
@@ -61,12 +62,8 @@ def encode(filename):
                         # Get rid of that last end-bracket
                         block_body = block_body[1:]
                         print("Cmd", cmd)
-                        #print(bytearray.fromhex(cmd))
                         f.write(bytearray.fromhex(cmd.decode()))
                         f.write(b'\xff')
-
-                        #print("Need to write these bytes:", cmd)
-                        #print("And also ff")
 
                     else:
                         ctrl = block_body.split(b']')[0] + b']'
@@ -84,21 +81,27 @@ def encode(filename):
                         # Otherwise text like 81 5b has a collision with 5b, aka b'['.
                         # Once there's no fullwidth text, we can read it normally since it's all just ASCII ranges.
                         #print(block_body.decode('shift-jis'))
+
+                        # Still ASCII spaces though.
+                        if block_body[0] == 0x20:
+                            text += block_body[0].to_bytes(1, 'little')
+                            block_body = block_body[1:]
+                            continue
+
                         text += block_body[0].to_bytes(1, 'little')
                         text += block_body[1].to_bytes(1, 'little')
                         block_body = block_body[2:]
-                        #print([hex(t) for t in text])
-                        #print([hex(b) for b in block_body])
-                        #try:
-                        #    print(block_body[0].to_bytes(1, 'little'))
-                        #except IndexError:
-                        #    print("Block over")
+
                     print("Text:", text.decode('shift-jis'))
                     f.write(b"Text")
             f.write(bytes([0]))
 
 
 def decode_data_tos(filename):
+    """
+        Parses a TOS file from DATA.BIN.
+        Simpler than other TOS - it's just the text part, sep'd by 00s.
+    """
     with open(filename, 'rb') as f:
         blocks = []
         header = f.read(8)
@@ -164,7 +167,9 @@ def decode_data_tos(filename):
             f.write(b'\n')
 
 def decode_tos(filename):
-    """Decode an open TOS file object and write a parsed one."""
+    """
+        Decode an open TOS file object and write a parsed one.
+    """
     with open(filename, 'rb') as f:
         blocks = []
         header = f.read(8)
@@ -304,5 +309,3 @@ while (end of file) {
 # Name24 = Ri-zennha, or row 24 in NAME.PAC
 # Name118 = ..., or row 118 in NAME.PAC
 # Name130 = pa-rai-
-
-# Decoding stuff in DATA.BIN is simpler - it is just text, encoded the same way, separated by 00s.

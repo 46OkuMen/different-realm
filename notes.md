@@ -16,6 +16,8 @@
 	* 3) B:/
 	* 4) KID98 \N
 	* 5) Navigate to .ZIM files (WATASU1.ZIM, WATASU3.ZIM)
+* png2win output (compression type 10) doesn't want to show up ingame, even if WINP can read it...
+	* Can't seem to get anything with compression type 10 to show up ingame, anyway.
 
 ## Fun stuff
 * /home/TTT/rlmdb.exe has lots of debug menus for editing item, monster data, etc.
