@@ -76,20 +76,27 @@ def encode(filename, dest_filename=None):
 
                 else:
                     text = b''
+                    is_sjis = False
                     #print([hex(b) for b in block_body])
                     while len(block_body) > 0 and block_body[0].to_bytes(1, 'little') != b'[':
                         # Fullwidth text/SJIS should be read 2 bytes at a time.
                         if block_body[0] in SJIS_FIRST_BYTES:
+                            is_sjis = True
                             text += block_body[0].to_bytes(1, 'little')
                             text += block_body[1].to_bytes(1, 'little')
                             block_body = block_body[2:]
                         else:
-                            text += block_body[0].to_bytes(1, 'little')
+                            is_sjis = False
+                            try:
+                                text += (block_body[0] + 0x60).to_bytes(1, 'little')
+                            except OverflowError:
+                                text += block_body[0].to_bytes(1, 'little')
                             block_body = block_body[1:]
 
-                    print("Text:", text.decode('shift-jis'))
-                    if b'\x82' in text or b'\x81' in text:
-                        f.write(b"Text")
+                    #print("Text:", text.decode('shift-jis'))
+                    if is_sjis:
+                        f.write(b"text")   # "Text"
+                        # Nope, need to increase all the bytes by 20.
                     else:
                         f.write(text)
             f.write(bytes([0]))

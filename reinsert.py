@@ -11,10 +11,10 @@ Dump = DumpExcel(DUMP_XLS_PATH)
 OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
-FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS']
+FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS']
 DIETED_FILES = ['CMAKE.BIN',]
 
-for filename in FILES_TO_REINSERT:
+def reinsert(filename):
     path_in_disk = os.path.join('REALM', filename)
     dir_in_disk, just_filename = os.path.split(path_in_disk)
     gf_path = os.path.join('original', 'REALM', filename)
@@ -22,16 +22,27 @@ for filename in FILES_TO_REINSERT:
     #    OriginalDiffRealm.extract(filename, path_in_disk='REALM', dest_path='original')
     gf = Gamefile(gf_path, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
 
+    # TODO: This currently only inserts MAIN.EXE and nothing else.
+    # TOS files get parsed and then inserted. But beware when you add more files.
+
     if filename == 'MAIN.EXE':
         gf.edit(0x48b8, b'\x1a\x00')  # Read cursor incrementer from static 01
-        gf.edit(0x4887, b'\x90\x90')  # Nop out branch, free up 21-4f
-        gf.edit(0x487f, b'\x16')      # Change comparison, free up 16-20
-        gf.edit(0x4bab, b'\x16')      # Change comparison, free up 16-59
-        gf.edit(0x4bba, b'\x5a\x29')  # Change font table math, free up 5a-ff
+        gf.edit(0x4bb5, b'\x3c\x80')  # Compare to 0x80 instead of 0xad
+        gf.edit(0x4bba, b'\x5a\x29')  # Change font table math for lowercase
+        gf.edit(0x4bc3, b'\x90\x90\xbb\xa0\x29')  # Change font table math for uppercase
+        gf.edit(0x4bd8, b'\xbb\x32\x21')  # Change font table math for something else??
 
+        #gf.edit(0x4bab, b'\x16')      # Change comparison, free up 16-59
+            # TODO: This edit also screws up the numbers. Anything else I could do?
+
+            # 3a 29 = shift by 0x20
+
+        # TODO: This is actually a change in CMAKE.BIN, right?
         #gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
 
-        pass
+        gf.write(path_in_disk=dir_in_disk)
+
+
 
     elif filename.endswith('.TOS'):
         parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
@@ -61,8 +72,7 @@ for filename in FILES_TO_REINSERT:
                               dest_disk=TargetDiffRealm)
         encoded_gf.write(path_in_disk='REALM\\TALK')
 
-
-    #gf.write(path_in_disk=dir_in_disk)
+    #
 
 """
     DIETED_FILES are compressed with DIETX.EXE, a DOS utility.
@@ -72,11 +82,15 @@ for filename in FILES_TO_REINSERT:
     Now extract the compressed file and add it to patched/dieted_edited.
     It will be inserted as is at runtime.
 """
-for filename in DIETED_FILES:
-    gf_path = os.path.join('patched', 'dieted_edited', filename)
+def reinsert_dieted(df):
+    gf_path = os.path.join('patched', 'dieted_edited', df)
 
     gf = Gamefile(gf_path, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
     gf.write(path_in_disk='REALM')
 
+if __name__ == '__main__':
+    for f in FILES_TO_REINSERT:
+        reinsert(f)
 
-
+    for df in DIETED_FILES:
+        reinsert_dieted(df)
