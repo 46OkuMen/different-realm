@@ -1,3 +1,14 @@
+## win2png
+* STEPS TO EDIT AN IMAGE
+	* Open the Mac VM.
+	* ```./win2png data/realm/RLMFR.img -p 2```
+	* Email it to Windows.
+	* Edit the resulting PNG in GIMP. Don't touch it with Paint or it will expand a lot and produce incorrect results.
+	* Email it back to the Mac.
+	* ```./png2win -c 6 RLMFR.png```
+	* Email it to Windows.
+	* Put it on the disk.
+
 ## .IMG
 * So, there are some .ZIM files that appear to be image sources. They are allegedly created with KID98 but I can't get them to show up/load in KID98.
 * You can view .IMG files by using Hoee's 'winp.exe' utility. ("WinPac")
@@ -18,6 +29,8 @@
 	* 5) Navigate to .ZIM files (WATASU1.ZIM, WATASU3.ZIM)
 * png2win output (compression type 10) doesn't want to show up ingame, even if WINP can read it...
 	* Can't seem to get anything with compression type 10 to show up ingame, anyway.
+* The original RLMFR.IMG is dieted, should I try doing that?
+	* The game seems to accept RLMFR.IMG both dieted and undieted...
 
 ## Numbers
 * Currently all numbers are showing up as Q, R, S, etc.
@@ -49,6 +62,35 @@ there are at least 2 spots where 4f gets moved somewhere. Numbers are 50-5f. Coi
 
 
 6000:25f3 is PPPPP. The next 3 are buffers for a stat being edited.
+
+
+
+cmp al, 16
+jnb 4685
+jmp 4766
+
+Shorter version:
+
+cmp al, 16
+jge 4766 = 0f 8d f2 00 (90)
+
+## Name Entry
+mov al, [bx]
+stosb                ; store AL at address ES:DI, which is 6000:96
+
+...
+
+6000:ada4
+cmp al, 16
+jnz adac
+...
+cmp al, aa
+jnz adb2
+stosb                ; 6000:96 again
+
+* The underscores are the value a9 6 times.
+* Left/right cursor arrows decrement/increment EDI.
+
 
 ## DIETing
 *    Some files are compressed with DIET.EXE, a DOS executable compressor.
