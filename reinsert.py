@@ -1,6 +1,6 @@
 import os
 from shutil import copyfile
-from rominfo import SRC_DISK, DEST_DISK
+from rominfo import SRC_DISK, DEST_DISK, DATA_BIN_FILES
 from romtools.disk import Disk, Gamefile, Block
 from romtools.dump import DumpExcel
 from glodia import tos
@@ -11,8 +11,9 @@ Dump = DumpExcel(DUMP_XLS_PATH)
 OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
-FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS']
-DIETED_FILES = ['CMAKE.BIN',]
+FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
+                     'databin_files\\NAME.TOS']
+DIETED_FILES = ['CMAKE.BIN']
 
 def reinsert(filename):
     path_in_disk = os.path.join('REALM', filename)
@@ -32,17 +33,38 @@ def reinsert(filename):
         gf.edit(0x4bc3, b'\x90\x90\xbb\xa0\x29')  # Change font table math for uppercase
         gf.edit(0x4bd8, b'\xbb\x32\x21')  # Change font table math for something else??
 
-        #gf.edit(0x4bab, b'\x16')      # Change comparison, free up 16-59
-            # TODO: This edit also screws up the numbers. Anything else I could do?
-
-            # 3a 29 = shift by 0x20
-
         # TODO: This is actually a change in CMAKE.BIN, right?
         #gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
 
         gf.write(path_in_disk=dir_in_disk)
 
+     # TODO these. Need to encode, then pack into DATA.BIN.
+    elif filename.split('\\')[-1] in DATA_BIN_FILES:
+        parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
+        dest_filename = os.path.join('patched', filename)
+        dest_parsed_filename = os.path.join('patched', filename.replace('.TOS', '_parsed.TOS'))
 
+        #copyfile(parsed_filename, dest_parsed_filename)
+
+        # "Reinsert stuff"
+        # Really, just make sure the JP strings are in there
+        parsed_gf = Gamefile(parsed_filename, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
+        for t in Dump.get_translations(just_filename, include_blank=True):
+            assert parsed_gf.filestring.count(t.japanese) >= 1
+            print(t.english)
+
+            if t.english:
+                print("There's English here")
+                parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, t.english, 1)
+
+        # Write changes to the file, but not the disk. Still needs encoding
+        translated_parsed_filename = parsed_gf.write(skip_disk=True)
+
+        # Now encode the translated result file.
+        tos.encode_data_tos(translated_parsed_filename, dest_filename)
+
+        encoded_gf = Gamefile(dest_filename, disk=OriginalDiffRealm,
+                              dest_disk=TargetDiffRealm)
 
     elif filename.endswith('.TOS'):
         parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
@@ -71,6 +93,8 @@ def reinsert(filename):
         encoded_gf = Gamefile(dest_filename, disk=OriginalDiffRealm,
                               dest_disk=TargetDiffRealm)
         encoded_gf.write(path_in_disk='REALM\\TALK')
+
+
 
     #
 

@@ -101,6 +101,30 @@ def encode(filename, dest_filename=None):
                         f.write(text)
             f.write(bytes([0]))
 
+def encode_data_tos(filename, dest_filename=None):
+    if dest_filename is None:
+        dest_filename = filename.replace('_parsed.TOS', '_encoded.TOS')
+
+    with open(filename, 'rb') as f:
+        blocks = [l.rstrip(b'\n') for l in f.readlines()]
+
+    for b in blocks:
+        print("B is:", b)
+
+    with open(dest_filename, 'wb+') as f:
+        for b in blocks:
+            while len(b) > 0:
+                if b[0] in SJIS_FIRST_BYTES:
+                    f.write(b[0].to_bytes(1, 'little'))
+                    f.write(b[1].to_bytes(1, 'little'))
+                    b = b[2:]
+                else:
+                    f.write((b[0] + 0x60).to_bytes(1, 'little'))
+                    b = b[1:]
+            f.write(b'\x00')
+
+
+
 
 def decode_data_tos(filename):
     """

@@ -8,6 +8,7 @@ FILES = ['MAIN.EXE',]
 
 FILE_BLOCKS = {}
 
+DATA_BIN_FILES = ['ITEM.TOS', 'MONSTER.TOS', 'NAME.TOS', 'WORD.TOS']
 
 """
     TOS Specification
