@@ -12,7 +12,8 @@ OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
 FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
-                     'databin_files\\NAME.TOS']
+                     'MAP\\AM01.TOS', 'databin_files\\NAME.TOS']
+#FILES_TO_REINSERT = ['MAP\\AM01.TOS']
 DIETED_FILES = ['CMAKE.BIN']
 
 def reinsert(filename):
@@ -41,9 +42,21 @@ def reinsert(filename):
 
     elif filename.split('\\')[-1] in DATA_BIN_FILES:
         parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
+
+        parsed_gf = Gamefile(parsed_filename, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
+        for t in Dump.get_translations(just_filename, include_blank=True):
+            assert parsed_gf.filestring.count(t.japanese) >= 1
+            print(t.english)
+            if t.english:
+                print("There's English here")
+                parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, t.english, 1)
+
+        # Write changes to the file, but not the disk. Still needs encoding
+        translated_parsed_filename = parsed_gf.write(skip_disk=True)
+
         encoded_filename = os.path.join('patched', filename)
         print(encoded_filename)
-        tos.encode_data_tos(parsed_filename, encoded_filename)
+        tos.encode_data_tos(translated_parsed_filename, encoded_filename)
         #tos.reinsert_data_tos(encoded_filename, 0x89b, 'patched\\ETC\\DATA.BIN')
 
     elif 'DATA.BIN' in filename:
@@ -70,6 +83,10 @@ def reinsert(filename):
                 print("There's English here")
                 parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, t.english, 1)
 
+            # Just trying this out
+            #else:
+            #    parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, b'z', 1)
+
         # Write changes to the file, but not the disk. Still needs encoding
         translated_parsed_filename = parsed_gf.write(skip_disk=True)
 
@@ -78,7 +95,13 @@ def reinsert(filename):
 
         encoded_gf = Gamefile(dest_filename, disk=OriginalDiffRealm,
                               dest_disk=TargetDiffRealm)
-        encoded_gf.write(path_in_disk='REALM\\TALK')
+        if encoded_gf.filename[1] == 'T' or encoded_gf.filename in ['SYSTEM.TOS', 'HELP.TOS']:
+            encoded_gf.write(path_in_disk='REALM\\TALK')
+        elif encoded_gf.filename[1] == 'M':
+            encoded_gf.write(path_in_disk='REALM\\MAP')
+        else:
+            print(encoded_gf.filename)
+            raise Exception
 
 def reinsert_dieted(df):
     """

@@ -10,7 +10,7 @@ import binascii
 
 control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'Toggle',
                  b'Wait', b'Input', b'Switch', b'TxtSpd', b'Clear', b'Color',
-                 b'LN')
+                 b'LN', b'MapName')
 
 
 def encode(filename, dest_filename=None):
@@ -24,7 +24,7 @@ def encode(filename, dest_filename=None):
         blocks = [l.rstrip(b'\n') for l in f.readlines()]
 
     for b in blocks:
-        print(b)
+        #print(b)
         try:
             block_num = b.split(b'}')[0]
             block_num = block_num.lstrip(b'{')
@@ -67,7 +67,7 @@ def encode(filename, dest_filename=None):
                         print("Cmd", cmd)
                         f.write(bytearray.fromhex(cmd.decode()))
                         f.write(b'\xff')
-
+                    # Control code
                     else:
                         ctrl = block_body.split(b']')[0] + b']'
                         print("Ctrl:", ctrl)
@@ -98,6 +98,7 @@ def encode(filename, dest_filename=None):
                     #print("Text:", text.decode('shift-jis'))
                     if is_sjis:
                         f.write(b"text")   # "Text"
+                        f.write(bytes([s + 0x60 for s in str(block_num).encode('ascii')]))
                         # Nope, need to increase all the bytes by 20.
                     else:
                         f.write(text)
@@ -122,20 +123,24 @@ def encode_data_tos(filename, dest_filename=None):
         f.write(b'\x01')  # ??
 
         for i, b in enumerate(blocks):
-            #while len(b) > 0:
+            while len(b) > 0:
 
-                #if b[0] in SJIS_FIRST_BYTES:
-                #    f.write(b[0].to_bytes(1, 'little'))
-                #    f.write(b[1].to_bytes(1, 'little'))
-                #    b = b[2:]
-                #else:
-                #    f.write((b[0] + 0x60).to_bytes(1, 'little'))
-                #    b = b[1:]
+                if b[0] in SJIS_FIRST_BYTES:
+                    # THe normal thing to do: Write the SJIS
+                    #f.write(b[0].to_bytes(1, 'little'))
+                    #f.write(b[1].to_bytes(1, 'little'))
+                    #b = b[2:]
+                    # what I'm doing instead: Print a short thing
+                    f.write(b'\xae')
+                    break
+                else:
+                    f.write((b[0] + 0x60).to_bytes(1, 'little'))
+                    b = b[1:]
             # TODO: Not getting quite the result I want. How about I just try reinserting actual text?
-            try:
-                f.write((i + 0x60).to_bytes(1, 'little'))
-            except:
-                f.write(b'text')
+            #try:
+            #    f.write((i + 0x60).to_bytes(1, 'little'))
+            #except:
+            #    f.write(b'text')
             f.write(b'\x00')
 
 def reinsert_data_tos(segment_filename, segment_offset, databin_filename):
@@ -290,15 +295,13 @@ def decode_tos(filename):
                 # Command, so skip until 21
                 elif 5 <= ord(b) <= 21:
                     cmd_base = ord(b)
-                    block += b'[Cmd'
-
                     next_b = f.read(1)
+
                     if cmd_base == 0x5 and ord(next_b) == 0x39:
-                        block += b'MapName'
+                        block += b'[MapName'
                         map_name = True
-
-
-                    if not map_name:
+                    else:
+                        block += b'[Cmd'
                         # Gotta include that first byte of the command
                         block += binascii.hexlify(b)
                         b = next_b

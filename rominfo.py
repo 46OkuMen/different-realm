@@ -123,6 +123,9 @@ CTRL = {
     b'\x03\x56': b'[Color6]',
     b'\x03\x57': b'[Color7]',
     b'\x03\x58': b'[AnimeSkip]',
+
+    b'\x05\x39': b'[MapName]',
+    b'\x00':     b'[MapNameEnd]',
 }
 
 
