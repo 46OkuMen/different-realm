@@ -109,8 +109,8 @@ stosb                ; 6000:96 again
 DATA.BIN appears to have some important .TOS files squished together.
 
 0x89b: name.tos, length is 0x30b
-0xba7: item.tos, length is 0x7ea
-0x1391: something unique to DATA.BIN?
+0xba7: item.tos, length is 0x7eb
+0x1392: something unique to DATA.BIN?
 0x1987: word.tos, length is 0x17f
 0x1b07: monster.tos, length is 0x37f
 End

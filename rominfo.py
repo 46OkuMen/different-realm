@@ -14,7 +14,8 @@ DATA_BIN_MAP = {
     'beginning': 0x0,
     'NAME.TOS': 0x89b,
     'ITEM.TOS': 0xba7,
-    'unknown': 0x1391,
+    'unknown': 0x1392,
+    'unknown2': 0x18f5,
     'WORD.TOS': 0x1987,
     'MONSTER.TOS': 0x1b07,
 }

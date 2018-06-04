@@ -1,5 +1,6 @@
 # .TOS file parser, based on documentation from Hoee Qwata
 
+import os
 import sys
 from shutil import copyfile
 from romtools.utils import SJIS_FIRST_BYTES
@@ -130,7 +131,11 @@ def encode_data_tos(filename, dest_filename=None):
                 #else:
                 #    f.write((b[0] + 0x60).to_bytes(1, 'little'))
                 #    b = b[1:]
-            f.write(b'tst')
+            # TODO: Not getting quite the result I want. How about I just try reinserting actual text?
+            try:
+                f.write((i + 0x60).to_bytes(1, 'little'))
+            except:
+                f.write(b'text')
             f.write(b'\x00')
 
 def reinsert_data_tos(segment_filename, segment_offset, databin_filename):
@@ -143,58 +148,43 @@ def reinsert_data_tos(segment_filename, segment_offset, databin_filename):
 
 
 def write_data_tos(src_filename, dest_filename):
-    with open(src_filename, 'rb') as f:
-        original = f.read()
-
-    # TODO: Maybe need to re-dump the data.bin files? They don't quite match the DATA.BIN 
-    # segments
-
-    # TODO: Edit the pointers/lengths at the beginning
-
+    # Paste together all the DATA.BIN segments end to end in a new DATA.BIN file
     with open(dest_filename, 'wb') as f:
-        in_cursor = 0
-        out_cursor = 0
-        # Copy beginning segment, don't change anything
-        while in_cursor < DATA_BIN_MAP['NAME.TOS']:
-            f.write(original[in_cursor].to_bytes(1, 'little'))
-            in_cursor += 1
-            out_cursor += 1
+        segment_locations = []
+        cursor = 0
+        for component in [os.path.join('patched\\databin_files', s) for s in ['beginning.TOS', 'NAME.TOS',
+             'ITEM.TOS', 'unknown.TOS', 'unknown2.TOS', 'WORD.TOS', 'MONSTER.TOS']]:
+            print(component)
+            with open(component, 'rb') as g:
+                segment = g.read()
+            f.write(segment)
+            cursor += len(segment)
+            segment_locations.append(cursor)
 
-        # Reinsert NAME.TOS segment
-        with open('patched\\databin_files\\NAME.TOS', 'rb') as g:
-            segment = g.read()
-            print(segment)
-        f.write(segment)
-        out_cursor += len(segment)
-        name_length = len(segment)
-        item_start = out_cursor   # Need to rewrite name_length and unknown_start
+    print([hex(s) for s in segment_locations])
 
-        with open('patched\\databin_files\\ITEM.TOS', 'rb') as g:
-            segment = g.read()
-        f.write(segment)
-        out_cursor += len(segment)
-        item_length = len(segment)
-        unknown_start = out_cursor
+    # Update the pointers to each segment
+    with open(dest_filename, 'rb+') as f:
+        f.seek(0x2)
+        f.write(segment_locations[0].to_bytes(2, 'little'))
 
-        in_cursor = DATA_BIN_MAP['unknown']
-        while in_cursor < DATA_BIN_MAP['WORD.TOS']:
-            f.write(original[in_cursor].to_bytes(1, 'little'))
-            in_cursor += 1
-            out_cursor += 1
+        f.seek(0x8)
+        f.write(segment_locations[1].to_bytes(2, 'little'))
 
-        with open('patched\\databin_files\\WORD.TOS', 'rb') as g:
-            segment = g.read()
-        f.write(segment)
-        out_cursor += len(segment)
-        word_length = len(segment)
-        monster_start = out_cursor
+        f.seek(0xa)
+        f.write(segment_locations[2].to_bytes(2, 'little'))
 
-        with open('patched\\databin_files\\MONSTER.TOS', 'rb') as g:
-            segment = g.read()
-        f.write(segment)
-        out_cursor += len(segment)
-        monster_length = len(segment)
+        f.seek(0xc)
+        f.write(segment_locations[3].to_bytes(2, 'little'))
 
+        f.seek(0xf)
+        f.write(segment_locations[4].to_bytes(2, 'little'))
+
+        f.seek(0x11)
+        f.write(segment_locations[5].to_bytes(2, 'little'))
+
+        # Pointer values in header:
+        # 89b, 46, 1c6, ba7, 1392, 18f5, 1987, 1b07
 
 
 def decode_data_tos(filename):

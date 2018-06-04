@@ -41,9 +41,10 @@ def reinsert(filename):
 
     elif filename.split('\\')[-1] in DATA_BIN_FILES:
         parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
-        encoded_filename = parsed_filename.replace('_parsed', '_encoded')
-        tos.encode_data_tos(parsed_filename)
-        tos.reinsert_data_tos(encoded_filename, 0x89b, 'patched\\ETC\\DATA.BIN')
+        encoded_filename = os.path.join('patched', filename)
+        print(encoded_filename)
+        tos.encode_data_tos(parsed_filename, encoded_filename)
+        #tos.reinsert_data_tos(encoded_filename, 0x89b, 'patched\\ETC\\DATA.BIN')
 
     elif 'DATA.BIN' in filename:
         tos.write_data_tos('original\\REALM\\ETC\\DATA.BIN', 'patched\\ETC\\DATA.BIN')
