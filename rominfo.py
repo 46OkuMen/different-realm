@@ -10,6 +10,15 @@ FILE_BLOCKS = {}
 
 DATA_BIN_FILES = ['ITEM.TOS', 'MONSTER.TOS', 'NAME.TOS', 'WORD.TOS']
 
+DATA_BIN_MAP = {
+    'beginning': 0x0,
+    'NAME.TOS': 0x89b,
+    'ITEM.TOS': 0xba7,
+    'unknown': 0x1391,
+    'WORD.TOS': 0x1987,
+    'MONSTER.TOS': 0x1b07,
+}
+
 """
     TOS Specification
         2,N     : replaced by strings-table'[N]' (NAME.TOS)

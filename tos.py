@@ -1,8 +1,9 @@
 # .TOS file parser, based on documentation from Hoee Qwata
 
 import sys
+from shutil import copyfile
 from romtools.utils import SJIS_FIRST_BYTES
-from rominfo import CTRL, inverse_CTRL, MARKS
+from rominfo import CTRL, inverse_CTRL, MARKS, DATA_BIN_MAP
 from jis_x_0208 import jis_to_sjis
 import binascii
 
@@ -101,7 +102,11 @@ def encode(filename, dest_filename=None):
                         f.write(text)
             f.write(bytes([0]))
 
+
 def encode_data_tos(filename, dest_filename=None):
+    """
+        Encodes a parsed file from DATA.BIN.
+    """
     if dest_filename is None:
         dest_filename = filename.replace('_parsed.TOS', '_encoded.TOS')
 
@@ -112,17 +117,83 @@ def encode_data_tos(filename, dest_filename=None):
         print("B is:", b)
 
     with open(dest_filename, 'wb+') as f:
-        for b in blocks:
-            while len(b) > 0:
-                if b[0] in SJIS_FIRST_BYTES:
-                    f.write(b[0].to_bytes(1, 'little'))
-                    f.write(b[1].to_bytes(1, 'little'))
-                    b = b[2:]
-                else:
-                    f.write((b[0] + 0x60).to_bytes(1, 'little'))
-                    b = b[1:]
+        f.write(b'name.P')
+        f.write(b'\x01')  # ??
+
+        for i, b in enumerate(blocks):
+            #while len(b) > 0:
+
+                #if b[0] in SJIS_FIRST_BYTES:
+                #    f.write(b[0].to_bytes(1, 'little'))
+                #    f.write(b[1].to_bytes(1, 'little'))
+                #    b = b[2:]
+                #else:
+                #    f.write((b[0] + 0x60).to_bytes(1, 'little'))
+                #    b = b[1:]
+            f.write(b'tst')
             f.write(b'\x00')
 
+def reinsert_data_tos(segment_filename, segment_offset, databin_filename):
+    with open(segment_filename, 'rb') as f:
+        segment = f.read()
+
+    with open(databin_filename, 'rb+') as f:
+        f.seek(segment_offset)
+        f.write(segment)
+
+
+def write_data_tos(src_filename, dest_filename):
+    with open(src_filename, 'rb') as f:
+        original = f.read()
+
+    # TODO: Maybe need to re-dump the data.bin files? They don't quite match the DATA.BIN 
+    # segments
+
+    # TODO: Edit the pointers/lengths at the beginning
+
+    with open(dest_filename, 'wb') as f:
+        in_cursor = 0
+        out_cursor = 0
+        # Copy beginning segment, don't change anything
+        while in_cursor < DATA_BIN_MAP['NAME.TOS']:
+            f.write(original[in_cursor].to_bytes(1, 'little'))
+            in_cursor += 1
+            out_cursor += 1
+
+        # Reinsert NAME.TOS segment
+        with open('patched\\databin_files\\NAME.TOS', 'rb') as g:
+            segment = g.read()
+            print(segment)
+        f.write(segment)
+        out_cursor += len(segment)
+        name_length = len(segment)
+        item_start = out_cursor   # Need to rewrite name_length and unknown_start
+
+        with open('patched\\databin_files\\ITEM.TOS', 'rb') as g:
+            segment = g.read()
+        f.write(segment)
+        out_cursor += len(segment)
+        item_length = len(segment)
+        unknown_start = out_cursor
+
+        in_cursor = DATA_BIN_MAP['unknown']
+        while in_cursor < DATA_BIN_MAP['WORD.TOS']:
+            f.write(original[in_cursor].to_bytes(1, 'little'))
+            in_cursor += 1
+            out_cursor += 1
+
+        with open('patched\\databin_files\\WORD.TOS', 'rb') as g:
+            segment = g.read()
+        f.write(segment)
+        out_cursor += len(segment)
+        word_length = len(segment)
+        monster_start = out_cursor
+
+        with open('patched\\databin_files\\MONSTER.TOS', 'rb') as g:
+            segment = g.read()
+        f.write(segment)
+        out_cursor += len(segment)
+        monster_length = len(segment)
 
 
 
@@ -313,7 +384,12 @@ if __name__ == '__main__':
         else:
             decode_tos(sys.argv[2])
     elif sys.argv[1] == 'encode':
-        encode(sys.argv[2])
+        if any([t in sys.argv[2] for t in ('NAME_parsed.TOS', 'ITEM_parsed.TOS', 'MONSTER_parsed.TOS', 'WORD_parsed.TOS')]):
+            encode_data_tos(sys.argv[2])
+            copyfile('original/DATA.BIN', 'patched/DATA.BIN')
+            reinsert_data_tos(sys.argv[2].replace('_parsed.TOS', '_encoded.TOS'), 0x89b, 'patched/DATA.BIN')
+        else:
+            encode(sys.argv[2])
     
 
 

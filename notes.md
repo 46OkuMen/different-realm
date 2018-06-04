@@ -104,3 +104,46 @@ stosb                ; 6000:96 again
 
 ## Fun stuff
 * /home/TTT/rlmdb.exe has lots of debug menus for editing item, monster data, etc.
+
+## DATA.BIN
+DATA.BIN appears to have some important .TOS files squished together.
+
+0x89b: name.tos, length is 0x30b
+0xba7: item.tos, length is 0x7ea
+0x1391: something unique to DATA.BIN?
+0x1987: word.tos, length is 0x17f
+0x1b07: monster.tos, length is 0x37f
+End
+
+Pointers at the top. 12 00, then (little-endian pointer, then 4 bytes of ??, then another pointer, etc)
+
+|   |-SYSTEM.PAC          ; Message & Control Talk for System Program
+|   |-FMENU.PAC           ; Message & Control Talk for Battle Program
+|   |-WORD.PAC            ; 
+|   |-HELP.PAC            ; Help Message
+|   |-INFO.PAC            ; Explain of Item
+|   |-INFP.PAC            ; Explain of Psyonics
+|   |-ITEM.PAC            ; Armor or Item Name
+|   |-MONSTER.PAC         ; Enemy Name
+|   |-NAME.PAC            ; Party Name etc.
+
+Files that remain separate .TOS files:
+SYSTEM.TOS (in TALK)
+FMENU.TOS (in TALK)
+INFO.TOS (in TALK)
+INFP.TOS (in TALK)
+HELP.TOS (in TALK)
+
+Files in DATA.BIN:
+NAME.TOS
+ITEM.TOS
+WORD.TOS
+MONSTER.TOS
+
+
+Mystery files:
+TMP.TOS is just ST16.TOS.
+There are TMP.TOS files in the rest of the SRC folders, they are probably other various TOS files...
+
+## TODO
+* Remind SkyeWelse to scan the demo envelope & Popcom magazine it came with.
