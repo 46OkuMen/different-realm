@@ -24,9 +24,6 @@ def reinsert(filename):
     #    OriginalDiffRealm.extract(filename, path_in_disk='REALM', dest_path='original')
     gf = Gamefile(gf_path, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
 
-    # TODO: This currently only inserts MAIN.EXE and nothing else.
-    # TOS files get parsed and then inserted. But beware when you add more files.
-
     if filename == 'MAIN.EXE':
         gf.edit(0x48b8, b'\x1a\x00')  # Read cursor incrementer from static 01
         gf.edit(0x4bb5, b'\x3c\x80')  # Compare to 0x80 instead of 0xad
@@ -44,6 +41,7 @@ def reinsert(filename):
         parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
 
         parsed_gf = Gamefile(parsed_filename, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
+        print(filename)
         for t in Dump.get_translations(just_filename, include_blank=True):
             assert parsed_gf.filestring.count(t.japanese) >= 1
             print(t.english)
@@ -73,9 +71,10 @@ def reinsert(filename):
         #copyfile(parsed_filename, dest_parsed_filename)
 
         # "Reinsert stuff"
-        # Really, just make sure the JP strings are in there
         parsed_gf = Gamefile(parsed_filename, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
+        print(filename)
         for t in Dump.get_translations(just_filename, include_blank=True):
+            print(filename, t.location, t.japanese)
             assert parsed_gf.filestring.count(t.japanese) >= 1
             print(t.english)
 
@@ -83,11 +82,7 @@ def reinsert(filename):
                 print("There's English here")
                 parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, t.english, 1)
 
-            # Just trying this out
-            #else:
-            #    parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, b'z', 1)
-
-        # Write changes to the file, but not the disk. Still needs encoding
+        # Write changes to the file, but not the disk. Can only reinsert after encoding
         translated_parsed_filename = parsed_gf.write(skip_disk=True)
 
         # Now encode the translated result file.
