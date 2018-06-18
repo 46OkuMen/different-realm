@@ -31,6 +31,8 @@ def reinsert(filename):
         gf.edit(0x4bc3, b'\x90\x90\xbb\xa0\x29')  # Change font table math for uppercase
         gf.edit(0x4bd8, b'\xbb\x32\x21')  # Change font table math for something else??
 
+        gf.edit(0x296, b'\xb3\xd4\xcf\xc3\xcb\xcd\xc1\xce')  # eto[ -> Stockman
+
         # TODO: This is actually a change in CMAKE.BIN, right?
         #gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
 

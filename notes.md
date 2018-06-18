@@ -145,5 +145,15 @@ Mystery files:
 TMP.TOS is just ST16.TOS.
 There are TMP.TOS files in the rest of the SRC folders, they are probably other various TOS files...
 
+## Editing dieted files
+* Even if I can't DIET stuff automatically, I should at least have an automated way of doing the edits just in case I lose something.
+* CMAKE.BIN
+	* 0xb47, a9 -> bf     # Chnage placeholder letter from 'I' to "_"_
+	* 0xb4c, aa -> 00     # Remove whatever the "J" control code is so it displays correclty
+	* 0x4ee  06 -> 08     # Change something from a 6-character expectation to an 8-character one
+	* 0x524  b3 d4 cf c3 cb cd   # eto[ -> Stockm
+	* some unknown other change. Need to do a binary diff, TODO
+	* Hm, I am confused. CMAKE.BIN might not be dieted at all?? It's equal in patched/ and patched/dieted_edited...
+
 ## TODO
 * Remind SkyeWelse to scan the demo envelope & Popcom magazine it came with.
