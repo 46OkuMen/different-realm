@@ -150,10 +150,12 @@ There are TMP.TOS files in the rest of the SRC folders, they are probably other 
 * CMAKE.BIN
 	* 0xb47, a9 -> bf     # Chnage placeholder letter from 'I' to "_"_
 	* 0xb4c, aa -> 00     # Remove whatever the "J" control code is so it displays correclty
-	* 0x4ee  06 -> 08     # Change something from a 6-character expectation to an 8-character one
+	* 0x4ee  06 -> 08     # Change the 6-character "_"_ fill to an 8-character one 
 	* 0x524  b3 d4 cf c3 cb cd   # eto[ -> Stockm
 	* some unknown other change. Need to do a binary diff, TODO
 	* Hm, I am confused. CMAKE.BIN might not be dieted at all?? It's equal in patched/ and patched/dieted_edited...
 
 ## TODO
 * Remind SkyeWelse to scan the demo envelope & Popcom magazine it came with.
+* Name entry screen problems:
+	* Highlighted character advances 2 characters over instead of 1, and disappears when it gets past character 6
