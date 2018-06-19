@@ -12,9 +12,9 @@ OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
 FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
-                     'MAP\\AM01.TOS', 'databin_files\\NAME.TOS']
+                     'MAP\\AM01.TOS', 'databin_files\\NAME.TOS', 'CMAKE.BIN']
 #FILES_TO_REINSERT = ['MAP\\AM01.TOS']
-DIETED_FILES = ['CMAKE.BIN']
+#DIETED_FILES = []
 
 def reinsert(filename):
     path_in_disk = os.path.join('REALM', filename)
@@ -38,6 +38,39 @@ def reinsert(filename):
 
         gf.write(path_in_disk=dir_in_disk)
 
+    elif filename == 'CMAKE.BIN':
+        gf.edit(0xaaa, b'\x08')      # Init name with 8 underscores, not 6
+        gf.edit(0x624, b'\xb3\xd4\xcf\xc3\xcb\xcd\xc1\xce')  # Stockman replacement when re-entering menu
+        gf.edit(0x5e6, b'\x08')      # Copy all 8 chars of "Stockman" when re-entering menu
+        gf.edit(0x9f0, b'\x08')      # Enable entry past 6 characters to 8
+        gf.edit(0xda9, b'\xbf')      # Use "_" as blank character, not "I"
+        gf.edit(0xdad, b'\x00')      # Fix invisible "J"
+        gf.edit(0xaef, b'\x90\x90')  # Fix "creeping underscore" bug
+
+        gf.edit(0x9fd, b'\x02\xdd\x02\xdd\x66\x91\xb1\x1c\xf6\xe1\x03\xd8\x90') 
+        # Cursor-to-character math edit.
+        # Basically we want to add 2(ch) + 1c(cl) to ebx
+        # 
+        # add bl, ch
+        # add bl, ch
+        # xchg eax, ecx
+        # mov cl, 1c
+        # mul cl
+        # add bx, ax
+        # nop
+
+        #gf.edit(0xa07, b'\x10\xeb\x90')  # Cursor illusion (Superceded by bigger math edit)
+
+        # Other things that were edited in the dieted file but don't seem to affect anything
+        #gf.edit(0x600, b'\x08')      # ?
+        #gf.edit(0x633, b'\x08')      # ?
+        #gf.edit(0x64f, b'\x08')      # ?
+        #gf.edit(0xabb, b'\x08')      # ?
+
+        #gf.edit(0x84d, b'\x08')      # ?
+        #gf.edit(0x850, b'\x08')      # ?
+
+        gf.write(path_in_disk=dir_in_disk)
 
     elif filename.split('\\')[-1] in DATA_BIN_FILES:
         parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
@@ -100,19 +133,19 @@ def reinsert(filename):
             print(encoded_gf.filename)
             raise Exception
 
-def reinsert_dieted(df):
-    """
-        DIETED_FILES are compressed with DIETX.EXE, a DOS utility.
-        They need to be edited (manually or with a script) and placed in DRSource/PROJECT/HD-DosRL.thd.
-        There, run:
-            DIETX filename
-        Now extract the compressed file and add it to patched/dieted_edited.
-        It will be inserted as is at runtime.
-    """
-    gf_path = os.path.join('patched', 'dieted_edited', df)
-
-    gf = Gamefile(gf_path, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
-    gf.write(path_in_disk='REALM')
+#def reinsert_dieted(df):
+#    """
+#        DIETED_FILES are compressed with DIETX.EXE, a DOS utility.
+#        They need to be edited (manually or with a script) and placed in DRSource/PROJECT/HD-DosRL.thd.
+#        There, run:
+#            DIETX filename
+#        Now extract the compressed file and add it to patched/dieted_edited.
+#        It will be inserted as is at runtime.
+#    """
+#    gf_path = os.path.join('patched', 'dieted_edited', df)
+#
+#    gf = Gamefile(gf_path, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
+#    gf.write(path_in_disk='REALM')
 
 
 if __name__ == '__main__':
@@ -122,7 +155,7 @@ if __name__ == '__main__':
 
     reinsert('ETC\\DATA.BIN')
 
-    for df in DIETED_FILES:
-        reinsert_dieted(df)
+    #for df in DIETED_FILES:
+    #    reinsert_dieted(df)
 
     #gf.insert('patched/DATA.BIN', path_in_disk='REALM/ETC')

@@ -152,10 +152,25 @@ There are TMP.TOS files in the rest of the SRC folders, they are probably other 
 	* 0xb4c, aa -> 00     # Remove whatever the "J" control code is so it displays correclty
 	* 0x4ee  06 -> 08     # Change the 6-character "_"_ fill to an 8-character one 
 	* 0x524  b3 d4 cf c3 cb cd   # eto[ -> Stockm
+	* 0x935 d0 e0 -> 90 90 # Nop out shl al, 1 to fix "creeping underscores" bug
 	* some unknown other change. Need to do a binary diff, TODO
 	* Hm, I am confused. CMAKE.BIN might not be dieted at all?? It's equal in patched/ and patched/dieted_edited...
 
 ## TODO
 * Remind SkyeWelse to scan the demo envelope & Popcom magazine it came with.
 * Name entry screen problems:
-	* Highlighted character advances 2 characters over instead of 1, and disappears when it gets past character 6
+	* Can't type past character 6
+		* It worked in the old dieted version which is lost.
+			* Well, not really lost. Just need to see what it's doing...
+				* Alright, got that.
+	* Lowercase letters aren't working again, also second row of uppercase
+		* The math for determining where to go after a newline is wrong.
+			* Cursor on second row, first character -> first row, 11th character is entered.
+			* For each row, the drift appears to be 2. Second row is 2 off, third is 4(?), fourth is 6 off.
+	* Need to remove trailing underscores from names
+		* Set a breakpoint for the name when exiting the screen, look for checks if each byte is a9
+	* How do spaces work?
+	* It's likely that, once I reinsert the HELP.TOS text, the 0x803 value loaded from the stack will change. So I think I'll keep that in there rather than re-program this every time I change the text...
+		* It looks like it's already 803 by the time it gets there, is that always true?
+			* No
+	* When the 7th character is next up, it is not highlighted. But the 8th is...
