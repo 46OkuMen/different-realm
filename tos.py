@@ -400,10 +400,3 @@ while (end of file) {
     else if (173-255) { Katakana }
   }
 }"""
-
-# NAME.TOS seems difficult to edit, since it's in DATA.BIN and pretty strict.
-# I could just dump the names as plaintext...
-
-# Name24 = Ri-zennha, or row 24 in NAME.PAC
-# Name118 = ..., or row 118 in NAME.PAC
-# Name130 = pa-rai-

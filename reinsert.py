@@ -12,7 +12,8 @@ OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
 FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
-                     'MAP\\AM01.TOS', 'databin_files\\NAME.TOS', 'CMAKE.BIN']
+                     'MAP\\AM01.TOS', 'databin_files\\NAME.TOS', 'databin_files\\WORD.TOS',
+                     'CMAKE.BIN']
 #FILES_TO_REINSERT = ['MAP\\AM01.TOS']
 #DIETED_FILES = []
 
@@ -33,9 +34,6 @@ def reinsert(filename):
 
         gf.edit(0x296, b'\xb3\xd4\xcf\xc3\xcb\xcd\xc1\xce')  # eto[ -> Stockman
 
-        # TODO: This is actually a change in CMAKE.BIN, right?
-        #gf.edit(0x2f5d, b'\x10\xeb\x90')  # Name entry cursor illusion
-
         gf.write(path_in_disk=dir_in_disk)
 
     elif filename == 'CMAKE.BIN':
@@ -47,14 +45,14 @@ def reinsert(filename):
         gf.edit(0xdad, b'\x00')      # Fix invisible "J"
         gf.edit(0xaef, b'\x90\x90')  # Fix "creeping underscore" bug
 
-        gf.edit(0x9fd, b'\x02\xdd\x02\xdd\x66\x91\xb1\x1c\xf6\xe1\x03\xd8\x90') 
+        gf.edit(0x9fd, b'\x02\xdd\x02\xdd\x66\x91\xb1\x29\xf6\xe1\x03\xd8\x90') 
         # Cursor-to-character math edit.
-        # Basically we want to add 2(ch) + 1c(cl) to ebx
+        # Basically we want to add 2(ch) + 0x26(cl) to ebx
         # 
         # add bl, ch
         # add bl, ch
         # xchg eax, ecx
-        # mov cl, 1c
+        # mov cl, 29
         # mul cl
         # add bx, ax
         # nop

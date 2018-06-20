@@ -159,18 +159,10 @@ There are TMP.TOS files in the rest of the SRC folders, they are probably other 
 ## TODO
 * Remind SkyeWelse to scan the demo envelope & Popcom magazine it came with.
 * Name entry screen problems:
-	* Can't type past character 6
-		* It worked in the old dieted version which is lost.
-			* Well, not really lost. Just need to see what it's doing...
-				* Alright, got that.
-	* Lowercase letters aren't working again, also second row of uppercase
-		* The math for determining where to go after a newline is wrong.
-			* Cursor on second row, first character -> first row, 11th character is entered.
-			* For each row, the drift appears to be 2. Second row is 2 off, third is 4(?), fourth is 6 off.
 	* Need to remove trailing underscores from names
 		* Set a breakpoint for the name when exiting the screen, look for checks if each byte is a9
-	* How do spaces work?
-	* It's likely that, once I reinsert the HELP.TOS text, the 0x803 value loaded from the stack will change. So I think I'll keep that in there rather than re-program this every time I change the text...
-		* It looks like it's already 803 by the time it gets there, is that always true?
-			* No
 	* When the 7th character is next up, it is not highlighted. But the 8th is...
+	* How to handle spaces?
+		* In JP, the blank space inputs don't do anything, and you choose "underscore" to put in an underscore. When exiting the menu, the underscores are converted to spaces.
+* Main text program issues:
+	* It'd be nice if [ToggleStrWidth] skinny characters would be closer together.
