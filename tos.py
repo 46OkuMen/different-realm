@@ -8,8 +8,8 @@ from rominfo import CTRL, inverse_CTRL, MARKS, DATA_BIN_MAP
 from jis_x_0208 import jis_to_sjis
 import binascii
 
-control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'Toggle',
-                 b'Wait', b'Input', b'Switch', b'TxtSpd', b'Clear', b'Color',
+control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'FlipWidth',
+                 b'Wait', b'Input', b'Switch', b'Spd', b'Clear', b'Color',
                  b'LN', b'MapName')
 
 

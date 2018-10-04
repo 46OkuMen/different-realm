@@ -122,3 +122,17 @@ e9e100 jmp 4766
 7203 jb 468c                <- can I just nop this?
 e91903 jmp 49a5
 
+
+# What happens when the 6000:10ff value is loaded?
+if 01:
+	jmp 4b49 (not aligned! werid)
+		mov ah, cs:[4b48]
+		call 7c30
+		...
+		...
+		mov cx, 0008 (aha!)  6000:4b55 b90800  # This appears to be "how many columns do you copy", not "how much do you move the cursor"
+else:
+	mov ah, cs:[4b48]
+	call 7c30
+
+	d0e4

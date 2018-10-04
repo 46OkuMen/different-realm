@@ -9,15 +9,17 @@ workbook_FILENAME = 'DiffRealm_Text.xlsx'
 workbook = xlsxwriter.Workbook(workbook_FILENAME)
 header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
 
-useful_ctrl_codes = [b'LN', b'Wait', b'Color', b'PlayerName', b'TxtSpd',
-                     b'Spaces', b'Voice', b'Toggle', b'Mouth', b'weird']
+useful_ctrl_codes = [b'Color', b'PlayerName', b'LN', b'Spd', b'Voice', b'Wait', b'Mouth', b'Input',
+                     b'Spaces', b'FlipWidth', b'weird']
+
+system_files = ['SYSTEM.TOS', 'HELP.TOS', 'INFO.TOS', 'INFP.TOS']
 
 garbage = ['て[LN]', 'て', 'てン', 'て[LN]巧砂ン', 'て[LN]沙執ン', 'ン', 'て[LN]患偽ン',
            'て[LN]慨偽ン', 'て[LN]係妓ン', 'て[LN]偽係ン', 'て[LN]品僕ン', 'て[LN]緬様ン',
            'て[LN]８９７６ン', 'て[LN]６７８９ン', 'て[LN]ぁ９８７ン', 'て[LN]７８９ぁン', 
            'て[LN]ぃあぁ９ン', 'てフェダイン特務隊唾', 'ンでユン', 'ヰでヱン', 'ンでャン', '[LN]力０１ン',
            '[LN]０１２３ン', '[LN]５３４２ン', 'ンでデン', 'て[LN]渦', 'て[PlayerName]、。　ン',
-           '渦ン', '[VoiceTone1E][TxtSpd2f][Spaces05]', '[VoiceTone1E][TxtSpd2f][Spaces04]',
+           '渦ン', '[VoiceTone1E][Spd2f][Spaces05]', '[VoiceTone1E][Spd2f][Spaces04]',
            '[Color7]', 'て[LN]渦[weird JIS 47 48]ン', 'て[LN][weird JIS 47 48]渦ン',
            'て[LN][weird JIS 46 46][weird JIS 47 48]ン', 'て[LN][weird JIS 45 45][weird JIS 45 45]ン',
            'てフェダイン特務隊唾[weird JIS 68 255]', 'でンでンでンン', 'でパ[weird JIS 39 21]ン',]
@@ -56,19 +58,21 @@ if __name__ == '__main__':
 
             sjis_buffer = b''
             cursor = 0
+            onscreen_length = 0
 
             comment = None
             split_here = False
 
             while cursor < len(p):
+                #print(sjis_buffer, onscreen_length)
                 # First byte of SJIS text. Read the next one, too
                 if 0x80 <= p[cursor] <= 0x9f or 0xe0 <= p[cursor] <= 0xef:
                     sjis_buffer += bytes([p[cursor]])
                     cursor += 1
                     total_cursor += 1
                     sjis_buffer += bytes([p[cursor]])
+                    onscreen_length += 2
 
-                # TODO: Would be nice to include color control codes and such
                 elif bytes([p[cursor]]) == b'[':
                     ctrl_code = b''
                     while bytes([p[cursor]]) != b']':
@@ -77,7 +81,11 @@ if __name__ == '__main__':
                         total_cursor += 1
                     ctrl_code += bytes([p[cursor]])
                     if any([cc in ctrl_code for cc in useful_ctrl_codes]):
-                        sjis_buffer += ctrl_code
+                        # Don't put control codes at the beginning
+                        if len(sjis_buffer) > 0:
+                            sjis_buffer += ctrl_code
+                            if ctrl_code == b'[LN]':
+                                split_here = True
                     else:
                         #print("Splitting at %s" % ctrl_code)
                         split_here = True
@@ -85,6 +93,7 @@ if __name__ == '__main__':
                 # ASCII space, too
                 elif p[cursor] == 0x20:
                     sjis_buffer += bytes([p[cursor]])
+                    onscreen_length += 1
 
                 elif p[cursor:cursor+4] == b'[wei':
                     while bytes([p[cursor]]) != b']':
@@ -99,6 +108,20 @@ if __name__ == '__main__':
                         sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
+                    onscreen_length = 0
+
+                # TODO: Seems like inconsistent line breaks.
+                #  ストックマン少佐ぁぁぁ・・・。 (30 onscreen, with plenty of space left)
+                #  みんなが待ってますから、早く (28 onscreen)
+                # First one has no face, second has a face. There we go.
+                    # Need to find the control code for "PICT UP"/"PICT DOWN"
+                    # and choose a different limit when it's present in the block.
+                    # (Does it affect the rest of the block?)
+
+                # If it's not a system file, break after 28 characters
+                if not any([s in t for s in system_files]):
+                    if onscreen_length >= 30:
+                        split_here = True
 
                 # Ran into an unimportant control code
                 if split_here:
@@ -106,6 +129,7 @@ if __name__ == '__main__':
                         sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
+                    onscreen_length = 0
                     split_here = False
 
                 cursor += 1
