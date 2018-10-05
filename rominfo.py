@@ -147,3 +147,8 @@ for x in range(0, 153):
 
 
 inverse_CTRL = {v: k for k, v in CTRL.items()}
+
+WINDOW_WIDTH = {
+    'FULL':     34,
+    'PORTRAIT': 28,
+}

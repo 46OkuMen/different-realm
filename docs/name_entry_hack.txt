@@ -1,0 +1,46 @@
+The cursor is at 9000:ffc2.
+The constant that gets added to it when the cursor moves is at 9000:ffac.
+	This gets loaded dynamically somewhere?
+
+Looks best when they're spaced out. So, can I get it to load the character at double the position of the cursor?
+
+Cursor (0402) loaded into ECX.
+Want it to get the character at 0802.
+So, look for accesses to ch.
+
+Change 6000:ab4c shl al, 01 to shl al, 02 (c0e002)?
+	Hard to find out where to get that extra byte from... what if I nop out the "mov ch, 02"?
+		c0e00203d890
+	Next time ch gets used is a mov dl, ch instruction.
+		6000:8ab8 8ad5 mov dl, ch
+		Try this:
+		b202 mov dl, 02
+		Breaks everything.
+
+Something that works:
+	6000:aa07 80d700 adc bh, 00
+	-> change to:
+		10eb adc bl, ch
+		90   nop
+This doesn't seem to work on the second row/row 01... why?
+	80f902 cmp cl, 02
+
+	My hack isn't working when I edit that in MAIN.EXE. That instruction is probably in some DIETed file...
+		It's in CMAKE.BIN at 0xa07...
+
+
+The chars get moved depending on EDI. 96 thru 9b?
+
+Moved to EAX, compared to 6 (max length)
+6000:a9ef 3d0600 cmp ax, 0006
+	Could probably increase this later.
+
+d0b0s:
+	0x62380
+	0x6dc2
+
+d1b0s:
+	0xf325
+
+d0e0 is at 0xaef in the original, uncdieted CMAKE.BIN.
+	So I have been editing the already-dieted version...

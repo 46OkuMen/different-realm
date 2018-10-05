@@ -1,0 +1,4 @@
+0a 08 0a ff  (PICT UP, 10)
+0a 08 0a ff  (PICT UP, 10)
+
+0a 09 08 ff  (PICT LOW, 8)

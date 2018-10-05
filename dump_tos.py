@@ -1,15 +1,14 @@
-import re
 import os
-import sys
 import xlsxwriter
 from tos import decode_tos, decode_data_tos
+from rominfo import WINDOW_WIDTH
 
 workbook_FILENAME = 'DiffRealm_Text.xlsx'
 
 workbook = xlsxwriter.Workbook(workbook_FILENAME)
 header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
 
-useful_ctrl_codes = [b'Color', b'PlayerName', b'LN', b'Spd', b'Voice', b'Wait', b'Mouth', b'Input',
+useful_ctrl_codes = [b'Color', b'PlayerName', b'Spd', b'Voice', b'Mouth',
                      b'Spaces', b'FlipWidth', b'weird']
 
 system_files = ['SYSTEM.TOS', 'HELP.TOS', 'INFO.TOS', 'INFP.TOS']
@@ -47,6 +46,7 @@ if __name__ == '__main__':
         total_cursor = 0
 
         for p in parsed_tos_blocks:
+            #print(p)
 
             try:
                 block_num = int(p.split(b"}")[0].lstrip(b'{'))
@@ -60,11 +60,11 @@ if __name__ == '__main__':
             cursor = 0
             onscreen_length = 0
 
+            window = WINDOW_WIDTH["FULL"]  # TODO: 34 is still just a guess
             comment = None
             split_here = False
 
             while cursor < len(p):
-                #print(sjis_buffer, onscreen_length)
                 # First byte of SJIS text. Read the next one, too
                 if 0x80 <= p[cursor] <= 0x9f or 0xe0 <= p[cursor] <= 0xef:
                     sjis_buffer += bytes([p[cursor]])
@@ -86,6 +86,9 @@ if __name__ == '__main__':
                             sjis_buffer += ctrl_code
                             if ctrl_code == b'[LN]':
                                 split_here = True
+                    # If a PICT is displayed, the window is smaller
+                    elif b'Cmd0a08' in ctrl_code or b'Cmd0a09' in ctrl_code:
+                        window = WINDOW_WIDTH["PORTRAIT"]
                     else:
                         #print("Splitting at %s" % ctrl_code)
                         split_here = True
@@ -105,28 +108,25 @@ if __name__ == '__main__':
                 # End of continuous SJIS string, so add the buffer to the strings and reset buffer
                 else:
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
-                        sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
+                        sjis_strings.append((total_cursor, block_num, window, sjis_buffer, comment))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
 
-                # TODO: Seems like inconsistent line breaks.
-                #  ストックマン少佐ぁぁぁ・・・。 (30 onscreen, with plenty of space left)
+                # TODO: Still seems like inconsistent line breaks.
+                #  もうとっくにできてるんですよ。 (30 onscreen)
                 #  みんなが待ってますから、早く (28 onscreen)
-                # First one has no face, second has a face. There we go.
-                    # Need to find the control code for "PICT UP"/"PICT DOWN"
-                    # and choose a different limit when it's present in the block.
-                    # (Does it affect the rest of the block?)
+                # How does it decide where to break??
 
-                # If it's not a system file, break after 28 characters
+                # If it's not a system file, break after (window) characters
                 if not any([s in t for s in system_files]):
-                    if onscreen_length >= 30:
+                    if onscreen_length > window:
                         split_here = True
 
                 # Ran into an unimportant control code
                 if split_here:
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
-                        sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
+                        sjis_strings.append((total_cursor, block_num, window, sjis_buffer, comment))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
@@ -137,40 +137,65 @@ if __name__ == '__main__':
 
             # Catch anything left after exiting the loop
             if sjis_buffer:
-                sjis_strings.append((total_cursor, block_num, sjis_buffer, comment))
+                sjis_strings.append((total_cursor, block_num, window, sjis_buffer, comment))
 
-        sjis_strings = [s for s in sjis_strings if s[2].decode('shift_jis_2004') not in garbage]
-
+        sjis_strings = [s for s in sjis_strings if s[3].decode('shift_jis_2004') not in garbage]
 
         if sjis_strings:
             worksheet = workbook.add_worksheet(os.path.split(t)[1])
             file_count += 1
 
-            worksheet.set_column('B:B', 5)
-            worksheet.set_column('C:C', 60)
-            worksheet.set_column('E:E', 60)
             worksheet.write(0, 0, 'Offset', header)
+
+            # Block column should be narrow
+            worksheet.set_column('B:B', 5)
             worksheet.write(0, 1, 'Block', header)
-            worksheet.write(0, 2, 'Japanese', header)
-            worksheet.write(0, 3, 'JP_Len', header)
-            worksheet.write(0, 4, 'English', header)
-            worksheet.write(0, 5, 'EN_Len', header)
-            worksheet.write(0, 6, 'Comments', header)
+
+            # Window column should be narrow
+            worksheet.set_column('C:C', 5)
+            worksheet.write(0, 2, 'Window', header)
+
+            # JP column should be wide
+            worksheet.set_column('D:D', 60)
+            worksheet.write(0, 3, 'Japanese', header)
+
+            # JP_LEN column
+            worksheet.set_column('E:E', 5)
+            worksheet.write(0, 4, 'JP_Len', header)
+
+            # EN column
+            worksheet.set_column('F:F', 60)
+            worksheet.write(0, 5, 'English', header)
+
+            # EN_LEN column
+            worksheet.set_column('G:G', 5)
+            worksheet.write(0, 6, 'EN_Len', header)
+
+            # Comments column
+            worksheet.write(0, 7, 'Comments', header)
             row = 1
             for s in sjis_strings:
 
                 loc = '0x' + hex(s[0]).lstrip('0x').zfill(4)
                 block = str(s[1])
-                jp = s[2].decode('shift_jis_2004')
-            
+                jp = s[3].decode('shift_jis_2004')
+                window = str(s[2])
+                comment = s[4]
+
                 if jp in garbage:
                     continue
 
                 worksheet.write(row, 0, loc)
                 worksheet.write(row, 1, block)
-                worksheet.write(row, 2, jp)
-                if s[3] is not None:
-                    worksheet.write(row, 6, s[2])
+                worksheet.write(row, 2, window)
+                worksheet.write(row, 3, jp)
+
+                # Add the JP/EN length formulas.
+                # TODO: Get a regex for this to ignore bracketed stuff
+                worksheet.write(row, 4, "=LEN(D%s)" % row)
+                worksheet.write(row, 6, "=LEN(F%s)" % row)
+                if s[4] is not None:
+                    worksheet.write(row, 7, comment)
                 row += 1
         else:
             print("%s has no game text" % t)
