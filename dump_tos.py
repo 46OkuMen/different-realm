@@ -1,7 +1,7 @@
 import os
 import xlsxwriter
 from tos import decode_tos, decode_data_tos
-from rominfo import WINDOW_WIDTH
+from rominfo import WINDOW_WIDTH, inverse_MARKS
 
 workbook_FILENAME = 'DiffRealm_Text.xlsx'
 
@@ -29,6 +29,11 @@ if __name__ == '__main__':
         for filename in p[2]:
             if filename.endswith(".TOS") and "parsed" not in filename and "encoded" not in filename and 'unknown' not in filename and 'beginning' not in filename:
                 tos_paths.append(os.path.join(p[0], filename))
+
+    testing = True
+
+    if testing:
+        tos_paths = ['original\\REALM\\TALK\\AT01.TOS',]
 
     file_count = 0
 
@@ -65,6 +70,7 @@ if __name__ == '__main__':
             split_here = False
 
             while cursor < len(p):
+
                 # First byte of SJIS text. Read the next one, too
                 if 0x80 <= p[cursor] <= 0x9f or 0xe0 <= p[cursor] <= 0xef:
                     sjis_buffer += bytes([p[cursor]])
@@ -117,11 +123,21 @@ if __name__ == '__main__':
                 #  もうとっくにできてるんですよ。 (30 onscreen)
                 #  みんなが待ってますから、早く (28 onscreen)
                 # How does it decide where to break??
+                    # It allows an extra character (up to 30) if it's a MARK.
+
+                # TODO: In a conversation between a non-portrait and a portraited character,
+                #       I need to keep track of how windows are created, and the CHANGE codes that switch between windows.
 
                 # If it's not a system file, break after (window) characters
                 if not any([s in t for s in system_files]):
-                    if onscreen_length > window:
-                        split_here = True
+                    print(hex(total_cursor), onscreen_length, p[cursor+1:cursor+3])
+                    if onscreen_length >= window:
+                        if p[cursor+1:cursor+3] in inverse_MARKS:
+                            print(p[cursor+1:cursor+3])
+                            print("Next char is a mark, so it gets one more character")
+                            print(onscreen_length)
+                        else:
+                            split_here = True
 
                 # Ran into an unimportant control code
                 if split_here:
@@ -192,8 +208,8 @@ if __name__ == '__main__':
 
                 # Add the JP/EN length formulas.
                 # TODO: Get a regex for this to ignore bracketed stuff
-                worksheet.write(row, 4, "=LEN(D%s)" % row)
-                worksheet.write(row, 6, "=LEN(F%s)" % row)
+                worksheet.write(row, 4, "=LEN(D%s)" % str(row+1))
+                worksheet.write(row, 6, "=LEN(F%s)" % str(row+1))
                 if s[4] is not None:
                     worksheet.write(row, 7, comment)
                 row += 1
