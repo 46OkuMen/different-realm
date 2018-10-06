@@ -3,12 +3,71 @@ import xlsxwriter
 from tos import decode_tos, decode_data_tos
 from rominfo import WINDOW_WIDTH, inverse_MARKS
 
+
+class WindowLayout:
+    """
+        Keeps track of which type of window is being written to.
+    """
+    def __init__(self):
+        self.upper = WINDOW_WIDTH["FULL"]
+        self.lower = 99
+
+        self.current_window = self.upper
+        self.char_width = 2
+
+    def switchCurrentWindow(self):
+        print("switchCurrentWindow called")
+        if self.current_window == self.upper:
+            self.current_window = self.lower
+        elif self.current_window == self.lower:
+            self.current_window = self.upper
+
+    def getCurrentWidth(self):
+        #print(self.upper, self.lower)
+        if self.current_window == self.upper:
+            return self.upper
+        elif self.current_window == self.lower:
+            return self.lower
+
+    def getCurrentWindow(self):
+        #print(self.upper, self.lower)
+        if self.current_window == self.upper:
+            return "upper"
+        elif self.current_window == self.lower:
+            return "lower"
+        else:
+            return None
+
+    def createWindow(self, location, portrait=False):
+        print("Creating window")
+        if portrait:
+            width = WINDOW_WIDTH["PORTRAIT"]
+        else:
+            width = WINDOW_WIDTH["FULL"]
+
+        if location == "upper":
+            self.upper = width
+            self.current_window = self.upper
+        else:
+            self.lower = width
+            self.current_window = self.lower
+
+    def switchCharWidth(self):
+        if self.char_width == 2:
+            self.char_width = 1
+        elif self.char_width == 1:
+            self.char_width = 2
+
+    def getCharWidth(self):
+        return self.char_width
+
+
 workbook_FILENAME = 'DiffRealm_Text.xlsx'
 
 workbook = xlsxwriter.Workbook(workbook_FILENAME)
 header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
 
-useful_ctrl_codes = [b'Color', b'PlayerName', b'Spd', b'Voice', b'Mouth',
+useful_ctrl_codes = [b'Color', b'PlayerName', b'Spd', b'Voice', b'Mouth', b'Wait',
                      b'Spaces', b'FlipWidth', b'weird']
 
 system_files = ['SYSTEM.TOS', 'HELP.TOS', 'INFO.TOS', 'INFP.TOS']
@@ -30,7 +89,7 @@ if __name__ == '__main__':
             if filename.endswith(".TOS") and "parsed" not in filename and "encoded" not in filename and 'unknown' not in filename and 'beginning' not in filename:
                 tos_paths.append(os.path.join(p[0], filename))
 
-    testing = True
+    testing = False
 
     if testing:
         tos_paths = ['original\\REALM\\TALK\\AT01.TOS',]
@@ -65,7 +124,9 @@ if __name__ == '__main__':
             cursor = 0
             onscreen_length = 0
 
-            window = WINDOW_WIDTH["FULL"]  # TODO: 34 is still just a guess
+            window_layout = WindowLayout()
+
+            #window = WINDOW_WIDTH["FULL"]
             comment = None
             split_here = False
 
@@ -77,7 +138,7 @@ if __name__ == '__main__':
                     cursor += 1
                     total_cursor += 1
                     sjis_buffer += bytes([p[cursor]])
-                    onscreen_length += 2
+                    onscreen_length += window_layout.getCharWidth()
 
                 elif bytes([p[cursor]]) == b'[':
                     ctrl_code = b''
@@ -86,15 +147,44 @@ if __name__ == '__main__':
                         cursor += 1
                         total_cursor += 1
                     ctrl_code += bytes([p[cursor]])
+
+                    # Important, common control codes get put in, and need a split possibly
                     if any([cc in ctrl_code for cc in useful_ctrl_codes]):
                         # Don't put control codes at the beginning
                         if len(sjis_buffer) > 0:
                             sjis_buffer += ctrl_code
                             if ctrl_code == b'[LN]':
                                 split_here = True
-                    # If a PICT is displayed, the window is smaller
-                    elif b'Cmd0a08' in ctrl_code or b'Cmd0a09' in ctrl_code:
-                        window = WINDOW_WIDTH["PORTRAIT"]
+                            elif ctrl_code == b'[FlipWidth]':
+                                window_layout.switchCharWidth()
+
+                    # Window control codes
+                    # TODO: Might be good to go back into dump_and_decode_tos.py 
+                    #       and make these into real control codes...
+                    # "WIN 10"
+                    elif b'Cmd090a' in ctrl_code:
+                        window_layout.createWindow(location="upper", portrait=False)
+                        split_here = True
+
+                    # "WIN 11"
+                    elif b'Cmd090b' in ctrl_code:
+                        window_layout.createWindow(location="lower", portrait=False)
+                        split_here = True
+
+                    # "PICT UP" (10?)
+                    elif b'Cmd0a08' in ctrl_code:
+                        window_layout.createWindow(location="upper", portrait=True)
+                        split_here = True
+
+                    # "PICT LOW" (8?)
+                    elif b'Cmd0a09' in ctrl_code:
+                        window_layout.createWindow(location="lower", portrait=True)
+                        split_here = True
+
+                    elif b'SwitchTargetWindow' in ctrl_code:
+                        window_layout.switchCurrentWindow()
+                        split_here = True
+
                     else:
                         #print("Splitting at %s" % ctrl_code)
                         split_here = True
@@ -114,7 +204,7 @@ if __name__ == '__main__':
                 # End of continuous SJIS string, so add the buffer to the strings and reset buffer
                 else:
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
-                        sjis_strings.append((total_cursor, block_num, window, sjis_buffer, comment))
+                        sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
@@ -130,19 +220,21 @@ if __name__ == '__main__':
 
                 # If it's not a system file, break after (window) characters
                 if not any([s in t for s in system_files]):
-                    print(hex(total_cursor), onscreen_length, p[cursor+1:cursor+3])
-                    if onscreen_length >= window:
-                        if p[cursor+1:cursor+3] in inverse_MARKS:
-                            print(p[cursor+1:cursor+3])
-                            print("Next char is a mark, so it gets one more character")
-                            print(onscreen_length)
-                        else:
-                            split_here = True
+                    #print(hex(total_cursor), onscreen_length, p[cursor+1:cursor+3])
+                    if window_layout.getCurrentWindow() is not None:
+                        print(window_layout.getCurrentWindow())
+                        if onscreen_length >= window_layout.getCurrentWidth():
+                            if p[cursor+1:cursor+3] in inverse_MARKS:
+                                print(p[cursor+1:cursor+3])
+                                print("Next char is a mark, so it gets one more character")
+                                print(onscreen_length)
+                            else:
+                                split_here = True
 
                 # Ran into an unimportant control code
                 if split_here:
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
-                        sjis_strings.append((total_cursor, block_num, window, sjis_buffer, comment))
+                        sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
@@ -153,9 +245,9 @@ if __name__ == '__main__':
 
             # Catch anything left after exiting the loop
             if sjis_buffer:
-                sjis_strings.append((total_cursor, block_num, window, sjis_buffer, comment))
+                sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
 
-        sjis_strings = [s for s in sjis_strings if s[3].decode('shift_jis_2004') not in garbage]
+        sjis_strings = [s for s in sjis_strings if s[4].decode('shift_jis_2004') not in garbage]
 
         if sjis_strings:
             worksheet = workbook.add_worksheet(os.path.split(t)[1])
@@ -169,47 +261,52 @@ if __name__ == '__main__':
 
             # Window column should be narrow
             worksheet.set_column('C:C', 5)
-            worksheet.write(0, 2, 'Window', header)
+            worksheet.write(0, 2, 'Width', header)
+
+            worksheet.set_column('D:D', 7)
+            worksheet.write(0, 3, "Window", header)
 
             # JP column should be wide
-            worksheet.set_column('D:D', 60)
-            worksheet.write(0, 3, 'Japanese', header)
+            worksheet.set_column('E:E', 60)
+            worksheet.write(0, 4, 'Japanese', header)
 
             # JP_LEN column
-            worksheet.set_column('E:E', 5)
-            worksheet.write(0, 4, 'JP_Len', header)
+            worksheet.set_column('F:F', 5)
+            worksheet.write(0, 5, 'JP_Len', header)
 
             # EN column
-            worksheet.set_column('F:F', 60)
-            worksheet.write(0, 5, 'English', header)
+            worksheet.set_column('G:G', 60)
+            worksheet.write(0, 6, 'English', header)
 
             # EN_LEN column
-            worksheet.set_column('G:G', 5)
-            worksheet.write(0, 6, 'EN_Len', header)
+            worksheet.set_column('H:H', 5)
+            worksheet.write(0, 7, 'EN_Len', header)
 
             # Comments column
-            worksheet.write(0, 7, 'Comments', header)
+            worksheet.write(0, 8, 'Comments', header)
             row = 1
             for s in sjis_strings:
 
                 loc = '0x' + hex(s[0]).lstrip('0x').zfill(4)
                 block = str(s[1])
-                jp = s[3].decode('shift_jis_2004')
-                window = str(s[2])
-                comment = s[4]
+                jp = s[4].decode('shift_jis_2004')
+                width = str(s[2])
+                window = str(s[3])
+                comment = s[5]
 
                 if jp in garbage:
                     continue
 
                 worksheet.write(row, 0, loc)
                 worksheet.write(row, 1, block)
-                worksheet.write(row, 2, window)
-                worksheet.write(row, 3, jp)
+                worksheet.write(row, 2, width)
+                worksheet.write(row, 3, window)
+                worksheet.write(row, 4, jp)
 
                 # Add the JP/EN length formulas.
                 # TODO: Get a regex for this to ignore bracketed stuff
-                worksheet.write(row, 4, "=LEN(D%s)" % str(row+1))
-                worksheet.write(row, 6, "=LEN(F%s)" % str(row+1))
+                worksheet.write(row, 5, "=LEN(E%s)" % str(row+1))
+                worksheet.write(row, 7, "=LEN(G%s)" % str(row+1))
                 if s[4] is not None:
                     worksheet.write(row, 7, comment)
                 row += 1

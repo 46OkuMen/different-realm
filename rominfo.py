@@ -150,6 +150,6 @@ inverse_CTRL = {v: k for k, v in CTRL.items()}
 inverse_MARKS = {v: k for k, v in MARKS.items()}
 
 WINDOW_WIDTH = {
-    'FULL':     34,
-    'PORTRAIT': 28,
+    'FULL':     32,  # 34 with punctuation
+    'PORTRAIT': 28,  # 28 with punctuation
 }

@@ -5,7 +5,10 @@ Repository for 46 OkuMen's fan translation of `Different Realm`.
 * Just getting started here.
 
 ## Usage
-* To parse the TOS files and dump all of the text into an Excel sheet:
+* To decode the TOS files (and maybe dump them? but not very well):
+```python decode_and_dump_tos.py```
+
+* To dump the text from the decoded TOS files and put them in an Excel sheet:
 ```python dump_tos.py```
 
 * To reinsert the text and apply ASM hacks:
