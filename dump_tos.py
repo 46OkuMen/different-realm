@@ -16,7 +16,7 @@ class WindowLayout:
         self.char_width = 2
 
     def switchCurrentWindow(self):
-        print("switchCurrentWindow called")
+        #print("switchCurrentWindow called")
         if self.current_window == self.upper:
             self.current_window = self.lower
         elif self.current_window == self.lower:
@@ -39,7 +39,7 @@ class WindowLayout:
             return None
 
     def createWindow(self, location, portrait=False):
-        print("Creating window")
+        #print("Creating window")
         if portrait:
             width = WINDOW_WIDTH["PORTRAIT"]
         else:
@@ -61,6 +61,14 @@ class WindowLayout:
     def getCharWidth(self):
         return self.char_width
 
+
+def strip_terminal_codes(s):
+    # Remove all ctrl codes from the end of a string.
+    while s.endswith(b']'):
+        #print(s)
+        s = b'['.join(s.split(b'[')[0:-1])
+        #print(s)
+    return s
 
 workbook_FILENAME = 'DiffRealm_Text.xlsx'
 
@@ -92,7 +100,7 @@ if __name__ == '__main__':
     testing = False
 
     if testing:
-        tos_paths = ['original\\REALM\\TALK\\AT01.TOS',]
+        tos_paths = ['original\\REALM\\TALK\\HELP.TOS',]
 
     file_count = 0
 
@@ -110,8 +118,6 @@ if __name__ == '__main__':
         total_cursor = 0
 
         for p in parsed_tos_blocks:
-            #print(p)
-
             try:
                 block_num = int(p.split(b"}")[0].lstrip(b'{'))
             except ValueError:
@@ -203,36 +209,30 @@ if __name__ == '__main__':
 
                 # End of continuous SJIS string, so add the buffer to the strings and reset buffer
                 else:
+                    sjis_buffer = strip_terminal_codes(sjis_buffer)
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
                         sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
 
-                # TODO: Still seems like inconsistent line breaks.
-                #  もうとっくにできてるんですよ。 (30 onscreen)
-                #  みんなが待ってますから、早く (28 onscreen)
-                # How does it decide where to break??
-                    # It allows an extra character (up to 30) if it's a MARK.
-
-                # TODO: In a conversation between a non-portrait and a portraited character,
-                #       I need to keep track of how windows are created, and the CHANGE codes that switch between windows.
-
                 # If it's not a system file, break after (window) characters
                 if not any([s in t for s in system_files]):
                     #print(hex(total_cursor), onscreen_length, p[cursor+1:cursor+3])
                     if window_layout.getCurrentWindow() is not None:
-                        print(window_layout.getCurrentWindow())
+                        #print(window_layout.getCurrentWindow())
                         if onscreen_length >= window_layout.getCurrentWidth():
                             if p[cursor+1:cursor+3] in inverse_MARKS:
-                                print(p[cursor+1:cursor+3])
-                                print("Next char is a mark, so it gets one more character")
-                                print(onscreen_length)
+                                #print(p[cursor+1:cursor+3])
+                                #print("Next char is a mark, so it gets one more character")
+                                #print(onscreen_length)
+                                pass
                             else:
                                 split_here = True
 
                 # Ran into an unimportant control code
                 if split_here:
+                    sjis_buffer = strip_terminal_codes(sjis_buffer)
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
                         sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
                     sjis_buffer = b""
@@ -245,6 +245,7 @@ if __name__ == '__main__':
 
             # Catch anything left after exiting the loop
             if sjis_buffer:
+                sjis_buffer = strip_terminal_codes(sjis_buffer)
                 sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
 
         sjis_strings = [s for s in sjis_strings if s[4].decode('shift_jis_2004') not in garbage]

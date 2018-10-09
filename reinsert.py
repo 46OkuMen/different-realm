@@ -77,16 +77,16 @@ def reinsert(filename):
         print(filename)
         for t in Dump.get_translations(just_filename, include_blank=True):
             assert parsed_gf.filestring.count(t.japanese) >= 1
-            print(t.english)
+            #print(t.english)
             if t.english:
-                print("There's English here")
+                #print("There's English here")
                 parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, t.english, 1)
 
         # Write changes to the file, but not the disk. Still needs encoding
         translated_parsed_filename = parsed_gf.write(skip_disk=True)
 
         encoded_filename = os.path.join('patched', filename)
-        print(encoded_filename)
+        #print(encoded_filename)
         tos.encode_data_tos(translated_parsed_filename, encoded_filename)
         #tos.reinsert_data_tos(encoded_filename, 0x89b, 'patched\\ETC\\DATA.BIN')
 
@@ -107,9 +107,9 @@ def reinsert(filename):
         parsed_gf = Gamefile(parsed_filename, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
         print(filename)
         for t in Dump.get_translations(just_filename, include_blank=True):
-            print(filename, t.location, t.japanese)
+            #print(filename, t.location, t.japanese)
             assert parsed_gf.filestring.count(t.japanese) >= 1
-            print(t.english)
+            #print(t.english)
 
             if t.english:
                 print("There's English here")

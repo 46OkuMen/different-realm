@@ -357,6 +357,12 @@ def decode_tos(filename):
                     block += sjis_string
                 b = f.read(1)
             #print "Block %s" % block_num, block
+            #print(block)
+            
+            # Quickly swap out that "II" for a fullwidth "2"
+            if b'\x87\x55' in block:
+                block = block.replace(b'\x87\x55', b'\x82\x51', 1)
+
             blocks.append(block)
 
     with open(filename.replace('.TOS', '_parsed.TOS'), 'wb+') as f:
