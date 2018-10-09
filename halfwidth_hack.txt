@@ -136,3 +136,26 @@ else:
 	call 7c30
 
 	d0e4
+
+
+StockmanF = 
+S = x53 + x60 = b3
+t = x74 + x60 = d4
+o = x6f + x60 = cf
+c = x63 + x60 = c3
+k
+m
+a
+n
+F = x46 + x60 = xa6
+
+b3d4cfc3 ... a6 is at 0x60090ish, 0x99090ish, 
+
+At 60090, where does it get loaded from?
+lodsw = load word DS:ESI into AX
+
+The F goes into the save file. Do we have this problem before it saves?
+Check the 60090 location, removing it there removes it from the screen.
+
+6000:ac76 8937 mov [bx], si
+	Puts a6 in [bx].

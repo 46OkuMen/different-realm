@@ -149,6 +149,30 @@ for x in range(0, 153):
 inverse_CTRL = {v: k for k, v in CTRL.items()}
 inverse_MARKS = {v: k for k, v in MARKS.items()}
 
+# (Lower speed number = faster)
+SPEED_INCREASES = {
+    b'[Spd28]': b'[Spd28]',  # Instant
+    b'[Spd29]': b'[Spd29]',
+    b'[Spd2a]': b'[Spd29]',
+    b'[Spd2b]': b'[Spd29]',
+    b'[Spd2c]': b'[Spd29]',
+    b'[Spd2d]': b'[Spd29]',
+    b'[Spd2e]': b'[Spd29]',
+    b'[Spd2f]': b'[Spd29]',
+    b'[Spd30]': b'[Spd29]',
+    b'[Spd31]': b'[Spd29]',
+    b'[Spd32]': b'[Spd29]',
+    b'[Spd33]': b'[Spd29]',
+    b'[Spd34]': b'[Spd29]',
+    b'[Spd35]': b'[Spd29]',
+    b'[Spd36]': b'[Spd29]',
+    b'[Spd37]': b'[Spd29]',
+    b'[Spd38]': b'[Spd29]',
+    b'[Spd39]': b'[Spd29]',
+    b'[Spd3a]': b'[Spd29]',
+    b'[Spd3b]': b'[Spd29]',
+}
+
 WINDOW_WIDTH = {
     'FULL':     32,  # 34 with punctuation
     'PORTRAIT': 28,  # 28 with punctuation

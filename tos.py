@@ -4,7 +4,7 @@ import os
 import sys
 from shutil import copyfile
 from romtools.utils import SJIS_FIRST_BYTES
-from rominfo import CTRL, inverse_CTRL, MARKS, DATA_BIN_MAP
+from rominfo import CTRL, inverse_CTRL, MARKS, DATA_BIN_MAP, SPEED_INCREASES
 from jis_x_0208 import jis_to_sjis
 import binascii
 
@@ -48,6 +48,9 @@ def encode(filename, dest_filename=None):
             # Gotta join the pieces with } again, or some SJIS will be disrupted
             block_body = b'}'.join(b.split(b'}')[1:])
             print("Block body:", block_body)
+
+            for spd in SPEED_INCREASES:
+                block_body = block_body.replace(spd, SPEED_INCREASES[spd])
 
             while len(block_body) > 0:
                 if block_body[0].to_bytes(1, 'little') == b'[':

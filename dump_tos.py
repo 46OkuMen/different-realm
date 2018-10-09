@@ -304,6 +304,9 @@ if __name__ == '__main__':
                 worksheet.write(row, 3, window)
                 worksheet.write(row, 4, jp)
 
+                # Also write JP to the EN column, per kuoushi request
+                worksheet.write(row, 6, jp)
+
                 # Add the JP/EN length formulas.
                 # TODO: Get a regex for this to ignore bracketed stuff
                 worksheet.write(row, 5, "=LEN(E%s)" % str(row+1))
