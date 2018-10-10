@@ -166,3 +166,11 @@ There are TMP.TOS files in the rest of the SRC folders, they are probably other 
 		* In JP, the blank space inputs don't do anything, and you choose "underscore" to put in an underscore. When exiting the menu, the underscores are converted to spaces.
 * Main text program issues:
 	* It'd be nice if [ToggleStrWidth] skinny characters would be closer together.
+
+	* Really cool notes in SRC/DOC. README.DOC has some notes on the concept from Kaz. Mentions tabletop games?
+	* TAIKEN.DOC - Kaz talks about his upcoming vacation, Hoee apologizes for a few bugs in the trial version
+	* wa-01.KAZ - story summary
+	* LIST.W - Bible Master design doc
+	* brother-morning.KAZ - game description, tabletop + manga?
+	* evento.KAZ - walkthrough/course of events
+	* ongaku.KAZ - description of each music's context and composition

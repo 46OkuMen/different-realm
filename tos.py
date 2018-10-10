@@ -8,7 +8,7 @@ from rominfo import CTRL, inverse_CTRL, MARKS, DATA_BIN_MAP, SPEED_INCREASES
 from jis_x_0208 import jis_to_sjis
 import binascii
 
-control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'FlipWidth',
+control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'FW',
                  b'Wait', b'Input', b'Switch', b'Spd', b'Clear', b'Color',
                  b'LN', b'MapName')
 
@@ -295,6 +295,24 @@ def decode_tos(filename):
                     else:
                         b2 = f.read(1)
                         block += CTRL[b + b2]
+                # Window control code
+                elif 9  <= ord(b) <= 10:
+                    window_base = ord(b)
+                    next_b = ord(f.read(1))
+
+                    if window_base == 9:
+                        if next_b == 10:
+                            block += b'[WindowUp]'
+                        elif next_b == 11:
+                            block += b'[WindowDown]'
+                    elif window_base == 10:
+                        if next_b == 8:
+                            block += b'[PortraitUp]'
+                        elif next_b == 9:
+                            block += b'[PortraitDown]'
+                    while b != b'\xff':
+                        b = f.read(1)
+
                 # Command, so skip until 21
                 elif 5 <= ord(b) <= 21:
                     cmd_base = ord(b)

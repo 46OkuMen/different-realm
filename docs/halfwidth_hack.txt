@@ -159,3 +159,11 @@ Check the 60090 location, removing it there removes it from the screen.
 
 6000:ac76 8937 mov [bx], si
 	Puts a6 in [bx].
+	[bx] is 9e.
+	What leads up to this instruction? Where does the 9e come from?
+		9e at 6000:ac4f
+		9e at 6000:ac64
+		9e at 6000:ac81 is "mov di, 009e" and then "mov cx, 0004". That describes the current state
+
+WORK.ASM describes the format of the Save Work Area, which begsin with "GLODIA.8 Drive.@" and contains important stuff.
+	* 

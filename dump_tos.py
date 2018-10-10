@@ -4,6 +4,17 @@ from tos import decode_tos, decode_data_tos
 from rominfo import WINDOW_WIDTH, inverse_MARKS
 
 
+class RealmString:
+    def __init__(self, string, suffix, location, block_num, window_width, window_position, comment):
+        self.string = string
+        self.suffix = suffix
+        self.location = location
+        self.block_num = block_num
+        self.window_width = window_width
+        self.window_position = window_position
+        self.comment = comment
+
+
 class WindowLayout:
     """
         Keeps track of which type of window is being written to.
@@ -62,21 +73,54 @@ class WindowLayout:
         return self.char_width
 
 
+def rchop(s, sub):
+    return s[:-len(sub)] if s.endswith(sub) else s
+
+
 def strip_terminal_codes(s):
-    # Remove all ctrl codes from the end of a string.
+    """
+        Remove all ctrl codes from the end of a string.
+    """
     while s.endswith(b']'):
         #print(s)
         s = b'['.join(s.split(b'[')[0:-1])
         #print(s)
     return s
 
+
+def get_terminal_codes(s):
+    result = b''
+    while s.endswith(b']'):
+        #print(s)
+        last_code = b'[' + s.split(b'[')[-1]
+        result = last_code + result  # Append to beginning
+        s = rchop(s, last_code)
+        #print(s)
+    #print(result)
+    return result
+
+
+def is_natural_ending(s):
+    """
+        Does this string have a control code that naturally ends it?
+    """
+    termcodes = get_terminal_codes(s)
+    for code in (b'[LN]', b'[Clear]', b'[Input]', b'[WindowUp]', b'[WindowDown]',
+                 b'[PortraitUp]', b'[PortraitDown]'):
+        if code in termcodes:
+            #print(s, "has a natural ending with", code)
+            #input()
+            return True
+    return False
+
+
 workbook_FILENAME = 'DiffRealm_Text.xlsx'
 
 workbook = xlsxwriter.Workbook(workbook_FILENAME)
 header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})
 
-useful_ctrl_codes = [b'Color', b'PlayerName', b'Spd', b'Voice', b'Mouth', b'Wait',
-                     b'Spaces', b'FlipWidth', b'weird']
+useful_ctrl_codes = [b'Color', b'PlayerName', b'Spd', b'Voice', b'Mouth', b'Wait', b'LN', b'Input', b'Clear',
+                     b'Spaces', b'FW', b'weird']
 
 system_files = ['SYSTEM.TOS', 'HELP.TOS', 'INFO.TOS', 'INFP.TOS']
 
@@ -100,7 +144,12 @@ if __name__ == '__main__':
     testing = False
 
     if testing:
-        tos_paths = ['original\\REALM\\TALK\\HELP.TOS',]
+        tos_paths = ['original\\REALM\\TALK\\AT01.TOS',]
+    else:
+        # Put the system files at the front of the dump
+        for sysfile in ['original\\REALM\\TALK\\' + s for s in ('HELP.TOS', 'INFP.TOS', 'INFO.TOS', 'SYSTEM.TOS')]:
+            tos_paths.remove(sysfile)
+            tos_paths.insert(0, sysfile)
 
     file_count = 0
 
@@ -129,6 +178,7 @@ if __name__ == '__main__':
             sjis_buffer = b''
             cursor = 0
             onscreen_length = 0
+            suffix = b''
 
             window_layout = WindowLayout()
 
@@ -161,34 +211,41 @@ if __name__ == '__main__':
                             sjis_buffer += ctrl_code
                             if ctrl_code == b'[LN]':
                                 split_here = True
-                            elif ctrl_code == b'[FlipWidth]':
+                            elif ctrl_code == b'[Input]':
+                                split_here = True
+                            elif ctrl_code == b'[Clear]':
+                                split_here = True
+                            elif ctrl_code == b'[FW]':
                                 window_layout.switchCharWidth()
 
                     # Window control codes
-                    # TODO: Might be good to go back into dump_and_decode_tos.py 
-                    #       and make these into real control codes...
                     # "WIN 10"
-                    elif b'Cmd090a' in ctrl_code:
+                    elif b'WindowUp' in ctrl_code:
                         window_layout.createWindow(location="upper", portrait=False)
+                        sjis_buffer += ctrl_code
                         split_here = True
 
                     # "WIN 11"
-                    elif b'Cmd090b' in ctrl_code:
+                    elif b'WindowDown' in ctrl_code:
                         window_layout.createWindow(location="lower", portrait=False)
+                        sjis_buffer += ctrl_code
                         split_here = True
 
                     # "PICT UP" (10?)
-                    elif b'Cmd0a08' in ctrl_code:
+                    elif b'PortraitUp' in ctrl_code:
                         window_layout.createWindow(location="upper", portrait=True)
+                        sjis_buffer += ctrl_code
                         split_here = True
 
                     # "PICT LOW" (8?)
-                    elif b'Cmd0a09' in ctrl_code:
+                    elif b'PortraitDown' in ctrl_code:
                         window_layout.createWindow(location="lower", portrait=True)
+                        sjis_buffer += ctrl_code
                         split_here = True
 
                     elif b'SwitchTargetWindow' in ctrl_code:
                         window_layout.switchCurrentWindow()
+                        sjis_buffer += ctrl_code
                         split_here = True
 
                     else:
@@ -209,46 +266,76 @@ if __name__ == '__main__':
 
                 # End of continuous SJIS string, so add the buffer to the strings and reset buffer
                 else:
+                    if is_natural_ending(sjis_buffer):
+                        suffix = b''
                     sjis_buffer = strip_terminal_codes(sjis_buffer)
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
-                        sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
+                        sjis_strings.append(RealmString(string=sjis_buffer, location=total_cursor,
+                                                        block_num=block_num, window_width=window_layout.getCurrentWidth(),
+                                                        window_position=window_layout.getCurrentWindow(), comment=comment,
+                                                        suffix=suffix))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
+                    suffix = b''
 
                 # If it's not a system file, break after (window) characters
                 if not any([s in t for s in system_files]):
-                    #print(hex(total_cursor), onscreen_length, p[cursor+1:cursor+3])
                     if window_layout.getCurrentWindow() is not None:
-                        #print(window_layout.getCurrentWindow())
                         if onscreen_length >= window_layout.getCurrentWidth():
+                            print(p[cursor+1:cursor+20])
                             if p[cursor+1:cursor+3] in inverse_MARKS:
                                 #print(p[cursor+1:cursor+3])
                                 #print("Next char is a mark, so it gets one more character")
                                 #print(onscreen_length)
                                 pass
+                            elif p[cursor+1:cursor+8] == b'[Input]':
+                                # Don't try to typeset before an [Input] code
+                                print("It's an Input, so continuing")
+                                pass
+                            elif p[cursor+1:cursor+6] == b'[Wait':
+                                print("It's a wait, so continuing")
+                                pass
+                            elif p[cursor+1:cursor+8] == b'[Window':
+                                print("It's a window, so continuing")
+                                pass
+                            elif p[cursor+1:cursor+10] == b'[Portrait':
+                                print("It's a portrait, so continuing")
+                                pass
                             else:
                                 split_here = True
+                                suffix += b'[LN]'
 
                 # Ran into an unimportant control code
                 if split_here:
+                    if is_natural_ending(sjis_buffer):
+                        suffix = b''
                     sjis_buffer = strip_terminal_codes(sjis_buffer)
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
-                        sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
+                        sjis_strings.append(RealmString(string=sjis_buffer, location=total_cursor,
+                                                        block_num=block_num, window_width=window_layout.getCurrentWidth(),
+                                                        window_position=window_layout.getCurrentWindow(), comment=comment,
+                                                        suffix=suffix))
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
                     split_here = False
+                    suffix = b''
 
                 cursor += 1
                 total_cursor += 1
 
             # Catch anything left after exiting the loop
             if sjis_buffer:
+                if is_natural_ending(sjis_buffer):
+                    suffix = b''
                 sjis_buffer = strip_terminal_codes(sjis_buffer)
-                sjis_strings.append((total_cursor, block_num, window_layout.getCurrentWidth(), window_layout.getCurrentWindow(), sjis_buffer, comment))
+                sjis_strings.append(RealmString(string=sjis_buffer, location=total_cursor,
+                                                block_num=block_num, window_width=window_layout.getCurrentWidth(),
+                                                window_position=window_layout.getCurrentWindow(), comment=comment,
+                                                suffix=suffix))
 
-        sjis_strings = [s for s in sjis_strings if s[4].decode('shift_jis_2004') not in garbage]
+        sjis_strings = [s for s in sjis_strings if s.string.decode('shift_jis_2004') not in garbage]
 
         if sjis_strings:
             worksheet = workbook.add_worksheet(os.path.split(t)[1])
@@ -283,17 +370,21 @@ if __name__ == '__main__':
             worksheet.set_column('H:H', 5)
             worksheet.write(0, 7, 'EN_Len', header)
 
+            # Suffix column
+            worksheet.write(0, 8, 'Suffix', header)
+
             # Comments column
-            worksheet.write(0, 8, 'Comments', header)
+            worksheet.write(0, 9, 'Comments', header)
             row = 1
             for s in sjis_strings:
 
-                loc = '0x' + hex(s[0]).lstrip('0x').zfill(4)
-                block = str(s[1])
-                jp = s[4].decode('shift_jis_2004')
-                width = str(s[2])
-                window = str(s[3])
-                comment = s[5]
+                loc = '0x' + hex(s.location).lstrip('0x').zfill(4)
+                block = str(s.block_num)
+                jp = s.string.decode('shift_jis_2004')
+                width = str(s.window_width)
+                window = str(s.window_position)
+                comment = str(s.comment)
+                suffix = s.suffix.decode('shift_jis_2004')
 
                 if jp in garbage:
                     continue
@@ -309,10 +400,14 @@ if __name__ == '__main__':
 
                 # Add the JP/EN length formulas.
                 # TODO: Get a regex for this to ignore bracketed stuff
+                # Excel can't do regex like GSheets...
                 worksheet.write(row, 5, "=LEN(E%s)" % str(row+1))
                 worksheet.write(row, 7, "=LEN(G%s)" % str(row+1))
-                if s[4] is not None:
-                    worksheet.write(row, 7, comment)
+
+                worksheet.write(row, 8, suffix)
+
+                if s.comment is not None:
+                    worksheet.write(row, 9, comment)
                 row += 1
         else:
             print("%s has no game text" % t)

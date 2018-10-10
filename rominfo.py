@@ -37,24 +37,24 @@ DATA_BIN_MAP = {
 """
 
 MARKS = {
-    22: b'\x81\x40', # space
-    23: b'\x81\x41', # comma
-    24: b'\x81\x42', # hollow period
-    25: b'\x81\x43', # comma
-    26: b'\x81\x44', # period
-    27: b'\x81\x45', # middle dot
-    28: b'\x81\x46', # colon
-    29: b'\x81\x47', # semicolon
-    30: b'\x81\x48', # question mark
-    31: b'\x81\x49', # exclamation mark
-    32: b'\x81\x5b', # dash thingy TODO: Get the real SJIS code for this
+    22: b'\x81\x40',  # space
+    23: b'\x81\x41',  # comma
+    24: b'\x81\x42',  # hollow period
+    25: b'\x81\x43',  # comma
+    26: b'\x81\x44',  # period
+    27: b'\x81\x45',  # middle dot
+    28: b'\x81\x46',  # colon
+    29: b'\x81\x47',  # semicolon
+    30: b'\x81\x48',  # question mark
+    31: b'\x81\x49',  # exclamation mark
+    32: b'\x81\x5b',  # dash thingy TODO: Get the real SJIS code for this
 }
 
 CTRL = {
     b'\x01':     b'[LN]',
     b'\x04':     b' ',
 
-    b'\x03\x03': b'[FlipWidth]',
+    b'\x03\x03': b'[FW]',
     b'\x03\x04': b'[Input]',
     b'\x03\x16': b'[Mouth16]',
     b'\x03\x17': b'[Mouth17]',
@@ -126,6 +126,11 @@ CTRL = {
 
     b'\x05\x39': b'[MapName]',
     b'\x00':     b'[MapNameEnd]',
+
+    b'\x09\x0a': b'[WindowUp]',
+    b'\x09\x0b': b'[WindowDown]',
+    b'\x0a\x08': b'[PortraitUp]',
+    b'\x0a\x09': b'[PortraitDown]',
 }
 
 

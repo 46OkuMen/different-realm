@@ -11,8 +11,8 @@ Dump = DumpExcel(DUMP_XLS_PATH)
 OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
-FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\AT02.TOS', 'TALK\\AT03.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
-                     'MAP\\AM01.TOS', 'MAP\\AM03.TOS', 'MAP\\BM06.TOS', 'databin_files\\NAME.TOS', 'databin_files\\WORD.TOS',
+FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
+                     'MAP\\AM01.TOS', 'databin_files\\NAME.TOS', 'databin_files\\WORD.TOS',
                      'CMAKE.BIN']
 #FILES_TO_REINSERT = ['MAP\\AM01.TOS']
 #DIETED_FILES = []
@@ -113,6 +113,8 @@ def reinsert(filename):
 
             if t.english:
                 print("There's English here")
+                if t.suffix:
+                    t.english += bytes(t.suffix, encoding='shift_jis')
                 parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, t.english, 1)
 
         # Write changes to the file, but not the disk. Can only reinsert after encoding
