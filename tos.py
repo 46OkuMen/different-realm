@@ -10,7 +10,7 @@ import binascii
 
 control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'FW',
                  b'Wait', b'Input', b'Switch', b'Spd', b'Clear', b'Color',
-                 b'LN', b'MapName')
+                 b'LN', b'MapName', b'Portrait', b'Window')
 
 
 def encode(filename, dest_filename=None):
@@ -42,15 +42,18 @@ def encode(filename, dest_filename=None):
 
         for b in blocks:
             block_num = int(b.split(b'}')[0].lstrip(b'{'))
-            print("Block", block_num)
+            #print("Block", block_num)
             f.write(bytes([block_num]))
 
             # Gotta join the pieces with } again, or some SJIS will be disrupted
             block_body = b'}'.join(b.split(b'}')[1:])
-            print("Block body:", block_body)
+            #print("Block body:", block_body)
 
-            for spd in SPEED_INCREASES:
-                block_body = block_body.replace(spd, SPEED_INCREASES[spd])
+            #for spd in SPEED_INCREASES:
+            #    print("Replacing speed")
+            #    block_body = block_body.replace(spd, SPEED_INCREASES[spd])
+
+            #assert b'[Spd2c]' not in block_body
 
             while len(block_body) > 0:
                 if block_body[0].to_bytes(1, 'little') == b'[':
@@ -67,16 +70,42 @@ def encode(filename, dest_filename=None):
 
                         # Get rid of that last end-bracket
                         block_body = block_body[1:]
-                        print("Cmd", cmd)
+                        #print("Cmd", cmd)
                         f.write(bytearray.fromhex(cmd.decode()))
                         f.write(b'\xff')
+                        
+                    elif block_body.startswith(b'[Portrait'):
+                        # One lone portrait in SYSTEM causes problems
+                        if 'SYSTEM' in filename:
+                            f.write(b'\x0a\x09\xfd\x0f\xff')
+                            block_body = b''
+
+                        else:
+                            block_body = block_body[9:]
+                            f.write(b'\x0a')
+                            if block_body.startswith(b'Up'):
+                                f.write(b'\x08')
+                                block_body = block_body[2:]
+                            elif block_body.startswith(b'Down'):
+                                f.write(b'\x09')
+                                block_body = block_body[4:]
+
+                            portrait_num = block_body[0].to_bytes(1, 'little') + block_body[1].to_bytes(1, 'little')
+                            block_body = block_body[2:]
+
+                            #print(portrait_num)
+                            f.write(bytearray.fromhex(portrait_num.decode()))
+                            f.write(b'\xff')
+                            # Get that last ]
+                            block_body = block_body[1:]
                     # Control code
                     else:
                         ctrl = block_body.split(b']')[0] + b']'
-                        print("Ctrl:", ctrl)
+                        #print("Ctrl:", ctrl)
                         block_body = block_body[len(ctrl):]
 
                         if any([c in ctrl for c in control_words]):
+                            #print(ctrl)
                             f.write(inverse_CTRL[ctrl])
 
                 else:
@@ -98,11 +127,10 @@ def encode(filename, dest_filename=None):
                                 text += block_body[0].to_bytes(1, 'little')
                             block_body = block_body[1:]
 
-                    #print("Text:", text.decode('shift-jis'))
                     if is_sjis:
+                        # TODO: Write filename instead of 'text'
                         f.write(b"text")   # "Text"
                         f.write(bytes([s + 0x60 for s in str(block_num).encode('ascii')]))
-                        # Nope, need to increase all the bytes by 20.
                     else:
                         f.write(text)
             f.write(bytes([0]))
@@ -118,8 +146,8 @@ def encode_data_tos(filename, dest_filename=None):
     with open(filename, 'rb') as f:
         blocks = [l.rstrip(b'\n') for l in f.readlines()]
 
-    for b in blocks:
-        print("B is:", b)
+    #for b in blocks:
+    #    print("B is:", b)
 
     with open(dest_filename, 'wb+') as f:
         f.write(b'name.P')
@@ -296,22 +324,26 @@ def decode_tos(filename):
                         b2 = f.read(1)
                         block += CTRL[b + b2]
                 # Window control code
-                elif 9  <= ord(b) <= 10:
+                elif 9 <= ord(b) <= 10:
                     window_base = ord(b)
                     next_b = ord(f.read(1))
 
                     if window_base == 9:
                         if next_b == 10:
-                            block += b'[WindowUp]'
+                            block += b'[WindowUp'
                         elif next_b == 11:
-                            block += b'[WindowDown]'
+                            block += b'[WindowDown'
                     elif window_base == 10:
                         if next_b == 8:
-                            block += b'[PortraitUp]'
+                            block += b'[PortraitUp'
                         elif next_b == 9:
-                            block += b'[PortraitDown]'
+                            block += b'[PortraitDown'
+                    b = f.read(1)
                     while b != b'\xff':
+                        block += binascii.hexlify(b)
                         b = f.read(1)
+
+                    block += b']'
 
                 # Command, so skip until 21
                 elif 5 <= ord(b) <= 21:

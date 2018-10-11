@@ -72,6 +72,7 @@ CTRL = {
     b'\x03\x26': b'[Voice26]',
     b'\x03\x27': b'[Voice27]',
 
+    # Lower is faster. 28 is instantaneous
     b'\x03\x28': b'[Spd28]',
     b'\x03\x29': b'[Spd29]',
     b'\x03\x2a': b'[Spd2a]',
@@ -93,6 +94,7 @@ CTRL = {
     b'\x03\x3a': b'[Spd3a]',
     b'\x03\x3b': b'[Spd3b]',
 
+    # Note that these are decimal, for easier use
     b'\x03\x3c': b'[Spaces03]',
     b'\x03\x3d': b'[Spaces04]',
     b'\x03\x3e': b'[Spaces05]',
@@ -127,10 +129,10 @@ CTRL = {
     b'\x05\x39': b'[MapName]',
     b'\x00':     b'[MapNameEnd]',
 
-    b'\x09\x0a': b'[WindowUp]',
-    b'\x09\x0b': b'[WindowDown]',
-    b'\x0a\x08': b'[PortraitUp]',
-    b'\x0a\x09': b'[PortraitDown]',
+    b'\x09\x0a\xff': b'[WindowUp]',
+    b'\x09\x0b\xff': b'[WindowDown]',
+    #b'\x0a\x08\x0a\xff': b'[PortraitUp]',
+    #b'\x0a\x09\x0a\xff': b'[PortraitDown]',
 }
 
 
