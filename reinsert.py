@@ -1,6 +1,6 @@
 import os
 from shutil import copyfile
-from rominfo import SRC_DISK, DEST_DISK, DATA_BIN_FILES
+from rominfo import SRC_DISK, DEST_DISK, DATA_BIN_FILES, NAMES, CTRL
 from romtools.disk import Disk, Gamefile, Block
 from romtools.dump import DumpExcel
 from glodia import tos
@@ -11,8 +11,8 @@ Dump = DumpExcel(DUMP_XLS_PATH)
 OriginalDiffRealm = Disk(SRC_DISK)
 TargetDiffRealm = Disk(DEST_DISK)
 
-FILES_TO_REINSERT = ['MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\AT02.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
-                     'MAP\\AM01.TOS', 'databin_files\\NAME.TOS', 'databin_files\\WORD.TOS',
+FILES_TO_REINSERT = ['databin_files\\NAME.TOS', 'MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\AT02.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
+                     'MAP\\AM01.TOS',  'databin_files\\WORD.TOS',
                      'CMAKE.BIN']
 #FILES_TO_REINSERT = ['MAP\\AM01.TOS']
 #DIETED_FILES = []
@@ -109,15 +109,18 @@ def reinsert(filename):
         for t in Dump.get_translations(just_filename, include_blank=True):
             #print(filename, t.location, t.japanese)
             assert parsed_gf.filestring.count(t.japanese) >= 1
-            #print(t.english)
 
             if t.english:
-                #print("There's English here")
                 if t.suffix:
                     t.english += bytes(t.suffix, encoding='shift_jis')
-                #print(filename[6])
-                #if filename[6] == 'T':
-                #    t.english = b'[Spd29]' + t.english
+                if filename[6] == 'T':
+                    # Super speed
+                    # t.english = b'[Spd29]' + t.english
+                    
+                    # Fancy name illusion
+                    for name in ENG_NAMES:
+                        t.english = t.english.replace(name, b'[Color6]' + name + b'[Color7]')
+
                 parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, t.english, 1)
 
         # Write changes to the file, but not the disk. Can only reinsert after encoding
@@ -153,6 +156,16 @@ def reinsert(filename):
 
 if __name__ == '__main__':
     copyfile('original/REALM/ETC/DATA.BIN', 'patched\\ETC\\DATA.BIN')
+
+    ENG_NAMES = []
+    counter = 22
+    for t in Dump.get_translations('NAME.TOS', include_blank=True):
+        print(t.english)
+        if len(t.english) > 0:
+            ENG_NAMES.append(t.english)
+        counter += 1
+    #print(ENG_NAMES)
+
     for f in FILES_TO_REINSERT:
         reinsert(f)
 
