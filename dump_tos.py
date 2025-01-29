@@ -129,7 +129,7 @@ garbage = ['て[LN]', 'て', 'てン', 'て[LN]巧砂ン', 'て[LN]沙執ン', '
            'て[LN]８９７６ン', 'て[LN]６７８９ン', 'て[LN]ぁ９８７ン', 'て[LN]７８９ぁン', 
            'て[LN]ぃあぁ９ン', 'てフェダイン特務隊唾', 'ンでユン', 'ヰでヱン', 'ンでャン', '[LN]力０１ン',
            '[LN]０１２３ン', '[LN]５３４２ン', 'ンでデン', 'て[LN]渦', 'て[PlayerName]、。　ン',
-           '渦ン', '[VoiceTone1E][Spd2f][Spaces05]', '[VoiceTone1E][Spd2f][Spaces04]',
+           '渦ン', '[Voice1E][Spd2f][Spaces05]', '[Voice1E][Spd2f][Spaces04]',
            '[Color7]', 'て[LN]渦[weird JIS 47 48]ン', 'て[LN][weird JIS 47 48]渦ン',
            'て[LN][weird JIS 46 46][weird JIS 47 48]ン', 'て[LN][weird JIS 45 45][weird JIS 45 45]ン',
            'てフェダイン特務隊唾[weird JIS 68 255]', 'でンでンでンン', 'でパ[weird JIS 39 21]ン',]
@@ -198,11 +198,21 @@ if __name__ == '__main__':
 
                 elif bytes([p[cursor]]) == b'[':
                     ctrl_code = b''
+                    # Read the entire control code (to the terminal ])
                     while bytes([p[cursor]]) != b']':
                         ctrl_code += bytes([p[cursor]])
                         cursor += 1
                         total_cursor += 1
                     ctrl_code += bytes([p[cursor]])
+
+                    """
+                    Nametags start with one of these:
+                    [SwitchTargetWindow], [WindowUp], [WindowDown], 
+                    [Clear], [PortraitUpXX], [PortraitDownXX] 
+                    or they just start immediately in a text block.
+
+                    They are always followed by [LN][VoiceXX]
+                    """
 
                     # Important, common control codes get put in, and need a split possibly
                     if any([cc in ctrl_code for cc in useful_ctrl_codes]):
@@ -210,7 +220,35 @@ if __name__ == '__main__':
                         if len(sjis_buffer) > 0:
                             sjis_buffer += ctrl_code
                             if ctrl_code == b'[LN]':
-                                split_here = True
+                                #print(p[cursor+1:cursor+30])
+                                # Lookahead - if the next one is [VoiceXX], this is a nametag
+                                if p[cursor+1:].startswith(b"[Voice"):
+                                    # Lookbehind - if the text right before the [LN] was SJIS
+                                    #print(p[cursor-5:cursor])
+                                    #print(hex(p[cursor-5]))
+                                    if 0x80 <= p[cursor-5] <= 0x9f or 0xe0 <= p[cursor-5] <= 0xef:
+                                        print("Nametag")
+                                        split_here = True
+
+                                        lookahead_cursor = cursor + 1
+
+                                        # Add the rest of the control codes via a lookahead, so they get put in the suffix column
+                                        while bytes([p[lookahead_cursor]]) == b'[':
+                                            ctrl_code = b''
+                                            while bytes([p[lookahead_cursor]]) != b']':
+                                                ctrl_code += bytes([p[lookahead_cursor]])
+                                                lookahead_cursor += 1
+
+                                            ctrl_code += bytes([p[lookahead_cursor]])
+                                            sjis_buffer += ctrl_code
+
+                                            lookahead_cursor += 1
+                                        print(sjis_buffer)
+                                        print("")
+                                    else:
+                                        split_here = False
+                                else:
+                                    split_here = False
                             elif ctrl_code == b'[Input]':
                                 split_here = True
                             elif ctrl_code == b'[Clear]':
@@ -247,7 +285,6 @@ if __name__ == '__main__':
                         window_layout.switchCurrentWindow()
                         sjis_buffer += ctrl_code
                         split_here = True
-
                     else:
                         #print("Splitting at %s" % ctrl_code)
                         split_here = True
@@ -267,23 +304,26 @@ if __name__ == '__main__':
                 # End of continuous SJIS string, so add the buffer to the strings and reset buffer
                 else:
                     if is_natural_ending(sjis_buffer):
-                        suffix = b''
+                        suffix = get_terminal_codes(sjis_buffer)
                     sjis_buffer = strip_terminal_codes(sjis_buffer)
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
                         sjis_strings.append(RealmString(string=sjis_buffer, location=total_cursor,
                                                         block_num=block_num, window_width=window_layout.getCurrentWidth(),
                                                         window_position=window_layout.getCurrentWindow(), comment=comment,
                                                         suffix=suffix))
+
+                    # Clear buffer, etc
                     sjis_buffer = b""
                     sjis_buffer_start = cursor+1
                     onscreen_length = 0
                     suffix = b''
 
                 # If it's not a system file, break after (window) characters
+
                 if not any([s in t for s in system_files]):
                     if window_layout.getCurrentWindow() is not None:
                         if onscreen_length >= window_layout.getCurrentWidth():
-                            print(p[cursor+1:cursor+20])
+                            #print(p[cursor+1:cursor+20])
                             if p[cursor+1:cursor+3] in inverse_MARKS:
                                 #print(p[cursor+1:cursor+3])
                                 #print("Next char is a mark, so it gets one more character")
@@ -291,25 +331,30 @@ if __name__ == '__main__':
                                 pass
                             elif p[cursor+1:cursor+8] == b'[Input]':
                                 # Don't try to typeset before an [Input] code
-                                print("It's an Input, so continuing")
+                                #print("It's an Input, so continuing")
                                 pass
                             elif p[cursor+1:cursor+6] == b'[Wait':
-                                print("It's a wait, so continuing")
+                                #print("It's a wait, so continuing")
                                 pass
                             elif p[cursor+1:cursor+8] == b'[Window':
-                                print("It's a window, so continuing")
+                                #print("It's a window, so continuing")
                                 pass
                             elif p[cursor+1:cursor+10] == b'[Portrait':
-                                print("It's a portrait, so continuing")
+                                #print("It's a portrait, so continuing")
                                 pass
-                            else:
+                            elif p[cursor+1:].startswith(b'[LN][Voice'):
+                                #print("It's a nametag")
+                                #print("")
                                 split_here = True
-                                suffix += b'[LN]'
+                                suffix = p[cursor+1:cursor+14]
+                            #else:
+                            #    split_here = True
+                            #    suffix += b'[LN]'
 
                 # Ran into an unimportant control code
                 if split_here:
                     if is_natural_ending(sjis_buffer):
-                        suffix = b''
+                        suffix = get_terminal_codes(sjis_buffer)
                     sjis_buffer = strip_terminal_codes(sjis_buffer)
                     if len(sjis_buffer.strip(b'\x81\x40 ')) > 0:
                         sjis_strings.append(RealmString(string=sjis_buffer, location=total_cursor,
@@ -328,7 +373,7 @@ if __name__ == '__main__':
             # Catch anything left after exiting the loop
             if sjis_buffer:
                 if is_natural_ending(sjis_buffer):
-                    suffix = b''
+                    suffix = get_terminal_codes(sjis_buffer)
                 sjis_buffer = strip_terminal_codes(sjis_buffer)
                 sjis_strings.append(RealmString(string=sjis_buffer, location=total_cursor,
                                                 block_num=block_num, window_width=window_layout.getCurrentWidth(),
