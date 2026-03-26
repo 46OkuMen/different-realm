@@ -4,9 +4,13 @@ import os
 import sys
 from shutil import copyfile
 from romtools.utils import SJIS_FIRST_BYTES
-from rominfo import CTRL, inverse_CTRL, MARKS, DATA_BIN_MAP, SPEED_INCREASES
-from jis_x_0208 import jis_to_sjis
+from rominfo import CTRL, inverse_CTRL, MARKS, inverse_MARKS, DATA_BIN_MAP, SPEED_INCREASES
+from jis_x_0208 import jis_to_sjis, sjis_to_jis
 import binascii
+
+# Standard SJIS lead byte ranges (not the romtools constant, which includes false positives)
+def is_sjis_lead(b):
+    return (0x81 <= b <= 0x9F) or (0xE0 <= b <= 0xEF)
 
 control_words = (b'Voice', b'Anime', b'Face', b'Mouth', b'Spaces', b'FW',
                  b'Wait', b'Input', b'Switch', b'Spd', b'Clear', b'Color',
@@ -73,6 +77,16 @@ def encode(filename, dest_filename=None):
                         #print("Cmd", cmd)
                         f.write(bytearray.fromhex(cmd.decode()))
                         f.write(b'\xff')
+
+                    elif block_body.startswith(b'[Ctrl'):
+                        # Unknown control code — raw hex bytes
+                        block_body = block_body[5:]  # skip '[Ctrl'
+                        hex_data = b''
+                        while block_body[0].to_bytes(1, 'little') != b']':
+                            hex_data += block_body[0].to_bytes(1, 'little')
+                            block_body = block_body[1:]
+                        block_body = block_body[1:]  # skip ']'
+                        f.write(bytearray.fromhex(hex_data.decode()))
                         
                     elif block_body.startswith(b'[Portrait'):
                         # One lone portrait in SYSTEM causes problems
@@ -98,6 +112,24 @@ def encode(filename, dest_filename=None):
                             f.write(b'\xff')
                             # Get that last ]
                             block_body = block_body[1:]
+
+                    elif block_body.startswith(b'[WindowUp') or block_body.startswith(b'[WindowDown'):
+                        f.write(b'\x09')
+                        if block_body.startswith(b'[WindowUp'):
+                            f.write(b'\x0a')
+                            block_body = block_body[9:]  # skip '[WindowUp'
+                        else:
+                            f.write(b'\x0b')
+                            block_body = block_body[11:]  # skip '[WindowDown'
+                        # Read optional hex parameters until ']'
+                        hex_params = b''
+                        while block_body[0].to_bytes(1, 'little') != b']':
+                            hex_params += block_body[0].to_bytes(1, 'little')
+                            block_body = block_body[1:]
+                        block_body = block_body[1:]  # skip ']'
+                        if hex_params:
+                            f.write(bytearray.fromhex(hex_params.decode()))
+                        f.write(b'\xff')
                     # Control code
                     else:
                         ctrl = block_body.split(b']')[0] + b']'
@@ -109,30 +141,43 @@ def encode(filename, dest_filename=None):
                             f.write(inverse_CTRL[ctrl])
 
                 else:
-                    text = b''
-                    is_sjis = False
-                    #print([hex(b) for b in block_body])
                     while len(block_body) > 0 and block_body[0].to_bytes(1, 'little') != b'[':
-                        # Fullwidth text/SJIS should be read 2 bytes at a time.
-                        if block_body[0] in SJIS_FIRST_BYTES:
-                            is_sjis = True
-                            text += block_body[0].to_bytes(1, 'little')
-                            text += block_body[1].to_bytes(1, 'little')
+                        if is_sjis_lead(block_body[0]):
+                            sjis_b1 = block_body[0]
+                            sjis_b2 = block_body[1]
+                            sjis_pair = bytes([sjis_b1, sjis_b2])
                             block_body = block_body[2:]
-                        else:
-                            is_sjis = False
-                            try:
-                                text += (block_body[0] + 0x60).to_bytes(1, 'little')
-                            except OverflowError:
-                                text += block_body[0].to_bytes(1, 'little')
-                            block_body = block_body[1:]
 
-                    if is_sjis:
-                        # TODO: Write filename instead of 'text'
-                        f.write(b"text")   # "Text"
-                        f.write(bytes([s + 0x60 for s in str(block_num).encode('ascii')]))
-                    else:
-                        f.write(text)
+                            if sjis_pair in inverse_MARKS:
+                                f.write(bytes([inverse_MARKS[sjis_pair]]))
+                            elif sjis_b1 == 0x82 and 0x9F <= sjis_b2 <= 0xF1:
+                                # Hiragana: SJIS 82 9F-F1 → TOS 5A-AC
+                                f.write(bytes([sjis_b2 - 69]))
+                            elif sjis_b1 == 0x82 and 0x4F <= sjis_b2 <= 0x58:
+                                # Numbers: SJIS 82 4F-58 → TOS 50-59
+                                f.write(bytes([sjis_b2 + 1]))
+                            elif sjis_b1 == 0x83 and 0x40 <= sjis_b2 <= 0x96:
+                                # Katakana: SJIS 83 40-96 → TOS AD-FF
+                                adjusted = sjis_b2
+                                if adjusted >= 0x80:
+                                    adjusted -= 1
+                                f.write(bytes([adjusted + 109]))
+                            elif sjis_pair in sjis_to_jis:
+                                # JIS kanji
+                                f.write(sjis_to_jis[sjis_pair])
+                            else:
+                                raise ValueError("Unknown SJIS pair: %s" % sjis_pair.hex())
+                        elif block_body[0] == 0x20:
+                            # ASCII space → TOS halfwidth space
+                            f.write(b'\x04')
+                            block_body = block_body[1:]
+                        else:
+                            # ASCII → game font table offset
+                            try:
+                                f.write((block_body[0] + 0x60).to_bytes(1, 'little'))
+                            except OverflowError:
+                                f.write(block_body[0].to_bytes(1, 'little'))
+                            block_body = block_body[1:]
             f.write(bytes([0]))
 
 
@@ -156,22 +201,33 @@ def encode_data_tos(filename, dest_filename=None):
         for i, b in enumerate(blocks):
             while len(b) > 0:
 
-                if b[0] in SJIS_FIRST_BYTES:
-                    # THe normal thing to do: Write the SJIS
-                    #f.write(b[0].to_bytes(1, 'little'))
-                    #f.write(b[1].to_bytes(1, 'little'))
-                    #b = b[2:]
-                    # what I'm doing instead: Print a short thing
-                    f.write(b'\xae')
-                    break
+                if is_sjis_lead(b[0]):
+                    sjis_b1 = b[0]
+                    sjis_b2 = b[1]
+                    sjis_pair = bytes([sjis_b1, sjis_b2])
+                    b = b[2:]
+
+                    if sjis_pair in inverse_MARKS:
+                        f.write(bytes([inverse_MARKS[sjis_pair]]))
+                    elif sjis_b1 == 0x82 and 0x9F <= sjis_b2 <= 0xF1:
+                        f.write(bytes([sjis_b2 - 69]))
+                    elif sjis_b1 == 0x82 and 0x4F <= sjis_b2 <= 0x58:
+                        f.write(bytes([sjis_b2 + 1]))
+                    elif sjis_b1 == 0x83 and 0x40 <= sjis_b2 <= 0x96:
+                        adjusted = sjis_b2
+                        if adjusted >= 0x80:
+                            adjusted -= 1
+                        f.write(bytes([adjusted + 109]))
+                    elif sjis_pair in sjis_to_jis:
+                        f.write(sjis_to_jis[sjis_pair])
+                    else:
+                        raise ValueError("Unknown SJIS pair: %s" % sjis_pair.hex())
                 else:
-                    f.write((b[0] + 0x60).to_bytes(1, 'little'))
+                    if b[0] == 0x20:
+                        f.write(b'\x04')
+                    else:
+                        f.write((b[0] + 0x60).to_bytes(1, 'little'))
                     b = b[1:]
-            # TODO: Not getting quite the result I want. How about I just try reinserting actual text?
-            #try:
-            #    f.write((i + 0x60).to_bytes(1, 'little'))
-            #except:
-            #    f.write(b'text')
             f.write(b'\x00')
 
 def reinsert_data_tos(segment_filename, segment_offset, databin_filename):
@@ -322,28 +378,50 @@ def decode_tos(filename):
                         block += b' '
                     else:
                         b2 = f.read(1)
-                        block += CTRL[b + b2]
+                        key = b + b2
+                        if key in CTRL:
+                            ctrl_val = CTRL[key]
+                            # Strip CR/LF to prevent line-splitting in parsed output
+                            ctrl_val = ctrl_val.replace(b'\r', b'').replace(b'\n', b'')
+                            block += ctrl_val
+                        else:
+                            block += b'[Ctrl' + binascii.hexlify(key) + b']'
                 # Window control code
                 elif 9 <= ord(b) <= 10:
                     window_base = ord(b)
                     next_b = ord(f.read(1))
 
+                    known_subtype = False
                     if window_base == 9:
                         if next_b == 10:
                             block += b'[WindowUp'
+                            known_subtype = True
                         elif next_b == 11:
                             block += b'[WindowDown'
+                            known_subtype = True
                     elif window_base == 10:
                         if next_b == 8:
                             block += b'[PortraitUp'
+                            known_subtype = True
                         elif next_b == 9:
                             block += b'[PortraitDown'
-                    b = f.read(1)
-                    while b != b'\xff':
-                        block += binascii.hexlify(b)
-                        b = f.read(1)
+                            known_subtype = True
 
-                    block += b']'
+                    if known_subtype:
+                        b = f.read(1)
+                        while b != b'\xff':
+                            block += binascii.hexlify(b)
+                            b = f.read(1)
+                        block += b']'
+                    else:
+                        # Unknown subtype — emit as generic Cmd with full hex
+                        block += b'[Cmd'
+                        block += binascii.hexlify(bytes([window_base, next_b]))
+                        b = f.read(1)
+                        while b != b'\xff':
+                            block += binascii.hexlify(b)
+                            b = f.read(1)
+                        block += b']'
 
                 # Command, so skip until 21
                 elif 5 <= ord(b) <= 21:

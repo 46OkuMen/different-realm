@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Different Realm — Script Viewer</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>Different Realm</h1>
+        <p>異世界 — 久遠の賢者 Script Viewer</p>
+      </div>
+
+      <div class="filters">
+        <label>
+          <span>File</span>
+          <select id="fileFilter"></select>
+        </label>
+        <label>
+          <span>Category</span>
+          <select id="pathFilter">
+            <option value="">All</option>
+            <option value="TALK">TALK</option>
+            <option value="MAP">MAP</option>
+          </select>
+        </label>
+        <label>
+          <span>Search</span>
+          <input id="searchInput" type="search" placeholder="Search text, tags, file names…">
+        </label>
+        <label class="checkbox-label">
+          <input id="hideEmptyToggle" type="checkbox" checked>
+          <span>Hide empty / command-only blocks</span>
+        </label>
+      </div>
+
+      <section class="progress-panel">
+        <div class="progress-header">
+          <strong>Translation progress</strong>
+          <span id="progressLabel"></span>
+        </div>
+        <div class="progress-track">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+      </section>
+
+      <div class="nav-row">
+        <button id="prevButton" type="button">◀ Prev</button>
+        <div id="recordCounter" class="counter"></div>
+        <button id="nextButton" type="button">Next ▶</button>
+      </div>
+
+      <div class="record-list-header">
+        <strong>Blocks</strong>
+        <span id="matchCount"></span>
+      </div>
+      <div id="recordList" class="record-list"></div>
+    </aside>
+
+    <main class="main-panel">
+      <section class="toolbar">
+        <div class="tab-row">
+          <button class="tab-button active" data-tab="script" type="button">Script viewer</button>
+          <button class="tab-button" data-tab="filemap" type="button">File map</button>
+        </div>
+        <div id="scriptToolbar" class="toolbar-bottom">
+          <label>
+            <span>Language</span>
+            <select id="langMode">
+              <option value="japanese">Japanese</option>
+              <option value="english">English</option>
+              <option value="both">Side by side</option>
+            </select>
+          </label>
+          <label class="checkbox-label">
+            <input id="showTagsToggle" type="checkbox">
+            <span>Show control codes</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Script viewer tab -->
+      <section id="tab-script" class="tab-panel active">
+        <div class="game-screen">
+          <div class="game-stage">
+            <div class="scene-panel">
+              <div class="placeholder-label">Scene</div>
+            </div>
+
+            <div class="portrait-panel">
+              <div id="portraitLabel" class="placeholder-label">Portrait</div>
+            </div>
+
+            <div class="dialog-panel" id="dialogPanel">
+              <div class="dialog-frame">
+                <div id="gameText" class="game-text"></div>
+              </div>
+              <div class="page-indicator" id="pageIndicator"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="inspector-grid">
+          <section class="panel">
+            <h2>Block info</h2>
+            <dl id="blockMeta" class="meta-list"></dl>
+          </section>
+
+          <section class="panel">
+            <h2>Control codes</h2>
+            <div id="tagList" class="tag-list"></div>
+          </section>
+
+          <section class="panel side-by-side-panel" id="sideBySidePanel" style="display:none">
+            <h2>English translation</h2>
+            <div id="englishText" class="english-text"></div>
+          </section>
+
+          <section class="panel">
+            <h2>Raw tagged text</h2>
+            <pre id="rawText" class="raw-text"></pre>
+          </section>
+        </div>
+      </section>
+
+      <!-- File map tab -->
+      <section id="tab-filemap" class="tab-panel">
+        <div class="panel">
+          <h2>File overview</h2>
+          <p class="panel-note">Block counts and translation status per file.</p>
+          <div id="fileMapGrid" class="file-map-grid"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="viewer-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
