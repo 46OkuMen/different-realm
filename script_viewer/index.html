@@ -35,6 +35,10 @@
           <input id="hideEmptyToggle" type="checkbox" checked>
           <span>Hide empty / command-only blocks</span>
         </label>
+        <label class="checkbox-label">
+          <input id="onlyWarningsToggle" type="checkbox">
+          <span>Only show validation warnings</span>
+        </label>
       </div>
 
       <section class="progress-panel">
@@ -45,6 +49,7 @@
         <div class="progress-track">
           <div id="progressFill" class="progress-fill"></div>
         </div>
+        <div id="validationLabel" class="validation-tally"></div>
       </section>
 
       <div class="nav-row">
@@ -85,20 +90,25 @@
       <!-- Script viewer tab -->
       <section id="tab-script" class="tab-panel active">
         <div class="game-screen">
-          <div class="game-stage">
-            <div class="scene-panel">
-              <div class="placeholder-label">Scene</div>
-            </div>
-
-            <div class="portrait-panel">
-              <div id="portraitLabel" class="placeholder-label">Portrait</div>
-            </div>
-
-            <div class="dialog-panel" id="dialogPanel">
-              <div class="dialog-frame">
-                <div id="gameText" class="game-text"></div>
+          <div class="game-stage" id="gameStage">
+            <div class="gs-left"><span class="gs-label">Scene</span></div>
+            <div class="gs-right">
+              <div class="gs-upper" id="upperArea">
+                <div class="gs-portrait" id="portraitUp"><span class="gs-label" id="portraitUpLabel">Portrait</span></div>
+                <div class="gs-textwin" id="textwinUp">
+                  <div id="gameText" class="game-text"></div>
+                  <div class="page-indicator" id="pageIndicator"></div>
+                </div>
               </div>
-              <div class="page-indicator" id="pageIndicator"></div>
+              <div class="gs-view" id="gameView"><span class="gs-label">Game View</span></div>
+              <div class="gs-lower" id="lowerArea">
+                <div class="gs-textwin" id="textwinDown"></div>
+                <div class="gs-portrait" id="portraitDown"><span class="gs-label" id="portraitDownLabel">Portrait</span></div>
+              </div>
+            </div>
+            <div class="gs-bar">
+              <span class="gs-bar-title">Different<br>Realm</span>
+              <span class="gs-bar-area" id="areaName"></span>
             </div>
           </div>
         </div>
@@ -109,11 +119,6 @@
             <dl id="blockMeta" class="meta-list"></dl>
           </section>
 
-          <section class="panel">
-            <h2>Control codes</h2>
-            <div id="tagList" class="tag-list"></div>
-          </section>
-
           <section class="panel side-by-side-panel" id="sideBySidePanel" style="display:none">
             <h2>English translation</h2>
             <div id="englishText" class="english-text"></div>
@@ -122,6 +127,12 @@
           <section class="panel">
             <h2>Raw tagged text</h2>
             <pre id="rawText" class="raw-text"></pre>
+          </section>
+
+          <section class="panel">
+            <h2>Workbook validator</h2>
+            <div id="validationSummary" class="validation-summary"></div>
+            <ul id="validationIssues" class="validation-list"></ul>
           </section>
         </div>
       </section>

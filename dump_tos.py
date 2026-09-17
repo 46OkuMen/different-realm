@@ -1,4 +1,5 @@
 import os
+import sys
 import xlsxwriter
 from tos import decode_tos, decode_data_tos
 from rominfo import WINDOW_WIDTH, inverse_MARKS
@@ -115,6 +116,16 @@ def is_natural_ending(s):
 
 
 workbook_FILENAME = 'DiffRealm_Text.xlsx'
+
+if os.path.isfile(workbook_FILENAME) and '--force' not in sys.argv:
+    sys.exit(
+        f"Refusing to overwrite existing '{workbook_FILENAME}' (xlsxwriter can only write a "
+        "fresh blank workbook, not edit one in place, so this would erase every translation "
+        "in it).\n"
+        "If you're merging translator updates, use sync_google_sheet.py instead.\n"
+        f"If you really want to regenerate '{workbook_FILENAME}' from scratch, move/rename it "
+        "first, or re-run this script with --force."
+    )
 
 workbook = xlsxwriter.Workbook(workbook_FILENAME)
 header = workbook.add_format({'bold': True, 'align': 'center', 'bottom': True, 'bg_color': 'gray'})

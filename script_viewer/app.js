@@ -33,6 +33,7 @@
   const $searchInput  = document.getElementById('searchInput');
   const $progressLabel = document.getElementById('progressLabel');
   const $progressFill = document.getElementById('progressFill');
+  const $validationLabel = document.getElementById('validationLabel');
   const $prevBtn      = document.getElementById('prevButton');
   const $nextBtn      = document.getElementById('nextButton');
   const $counter      = document.getElementById('recordCounter');
@@ -41,14 +42,21 @@
   const $gameText     = document.getElementById('gameText');
   const $pageInd      = document.getElementById('pageIndicator');
   const $blockMeta    = document.getElementById('blockMeta');
-  const $tagList      = document.getElementById('tagList');
   const $rawText      = document.getElementById('rawText');
   const $englishText  = document.getElementById('englishText');
+  const $validationSummary = document.getElementById('validationSummary');
+  const $validationIssues = document.getElementById('validationIssues');
   const $sideBySide   = document.getElementById('sideBySidePanel');
-  const $portraitLabel = document.getElementById('portraitLabel');
+  const $gameStage     = document.getElementById('gameStage');
+  const $textwinUp     = document.getElementById('textwinUp');
+  const $textwinDown   = document.getElementById('textwinDown');
+  const $portraitUpLabel = document.getElementById('portraitUpLabel');
+  const $portraitDownLabel = document.getElementById('portraitDownLabel');
+  const $areaName      = document.getElementById('areaName');
   const $langMode     = document.getElementById('langMode');
   const $showTags     = document.getElementById('showTagsToggle');
   const $hideEmpty    = document.getElementById('hideEmptyToggle');
+  const $onlyWarnings = document.getElementById('onlyWarningsToggle');
   const $fileMapGrid  = document.getElementById('fileMapGrid');
 
   // ── Initialize ───────────────────────────────────
@@ -66,6 +74,7 @@
     $langMode.addEventListener('change', renderCurrent);
     $showTags.addEventListener('change', () => { showTags = $showTags.checked; renderCurrent(); });
     $hideEmpty.addEventListener('change', applyFilters);
+    $onlyWarnings.addEventListener('change', applyFilters);
 
     // Tab switching
     document.querySelectorAll('.tab-button').forEach(btn => {
@@ -93,6 +102,11 @@
       o.textContent = `${f} (${count})`;
       $fileFilter.appendChild(o);
     }
+
+    // Default to the first game file
+    if (DATA.meta.files.includes('AT01.TOS')) {
+      $fileFilter.value = 'AT01.TOS';
+    }
   }
 
   // ── Progress bar ─────────────────────────────────
@@ -103,6 +117,12 @@
     const pct = total > 0 ? ((done / total) * 100).toFixed(1) : '0.0';
     $progressLabel.textContent = `${done} / ${total} (${pct}%)`;
     $progressFill.style.width = `${pct}%`;
+
+    const validationBlocks = DATA.meta.validationBlocks || 0;
+    const validationIssues = DATA.meta.validationIssues || 0;
+    $validationLabel.textContent = validationIssues > 0
+      ? `${validationBlocks} block${validationBlocks === 1 ? '' : 's'} flagged · ${validationIssues} warning${validationIssues === 1 ? '' : 's'}`
+      : 'No validator warnings in current viewer data.';
   }
 
   // ── Filtering ────────────────────────────────────
@@ -112,11 +132,13 @@
     const pathVal = $pathFilter.value;
     const query = $searchInput.value.toLowerCase().trim();
     const hideEmpty = $hideEmpty.checked;
+    const onlyWarnings = $onlyWarnings.checked;
 
     filtered = allRecords.filter(r => {
       if (fileVal && r.file !== fileVal) return false;
       if (pathVal && r.path !== pathVal) return false;
       if (hideEmpty && !r.text.trim()) return false;
+      if (onlyWarnings && (!r.validation || r.validation.issueCount === 0)) return false;
       if (query) {
         const haystack = (r.text + ' ' + r.raw + ' ' + r.file + ' ' + r.english).toLowerCase();
         if (!haystack.includes(query)) return false;
@@ -146,6 +168,7 @@
       div.dataset.index = i;
 
       const preview = r.text.replace(/\n/g, ' ').substring(0, 50);
+      const warningCount = r.validation ? r.validation.issueCount : 0;
 
       div.innerHTML =
         `<div class="record-item-header">` +
@@ -153,7 +176,8 @@
           `<span class="record-block">Block ${r.block}</span>` +
         `</div>` +
         `<div class="record-preview">${esc(preview)}</div>` +
-        (r.english ? '<div class="record-translated">Translated</div>' : '');
+        (r.english ? '<div class="record-translated">Translated</div>' : '') +
+        (warningCount ? `<div class="record-warning">${warningCount} warning${warningCount === 1 ? '' : 's'}</div>` : '');
 
       div.addEventListener('click', () => selectRecord(i));
       fragment.appendChild(div);
@@ -209,23 +233,63 @@
 
   function renderCurrent() {
     if (filtered.length === 0) {
+      $gameStage.className = 'game-stage show-lower-text';
+      $textwinDown.appendChild($gameText);
+      $textwinDown.appendChild($pageInd);
       $gameText.innerHTML = '<span style="color:var(--muted)">No matching blocks.</span>';
       $pageInd.innerHTML = '';
       $blockMeta.innerHTML = '';
-      $tagList.innerHTML = '';
       $rawText.textContent = '';
       $counter.textContent = '0 / 0';
+      $areaName.textContent = '';
+      $validationSummary.textContent = '';
+      $validationIssues.innerHTML = '';
       return;
     }
 
     const r = filtered[currentIndex];
     $counter.textContent = `${currentIndex + 1} / ${filtered.length}`;
 
+    // ── Determine game-stage layout from control codes ──
+    const hasPortraitUp = r.portrait && r.portrait.startsWith('PortraitUp');
+    const hasPortraitDown = r.portrait && r.portrait.startsWith('PortraitDown');
+    const isMapName = r.tags && r.tags.includes('MapName');
+
+    let textPos;
+    if (isMapName) {
+      textPos = 'mapname';
+    } else if (r.window === 'upper') {
+      textPos = 'upper';
+    } else if (r.window === 'lower') {
+      textPos = 'lower';
+    } else if (hasPortraitUp) {
+      textPos = 'upper';
+    } else {
+      textPos = 'lower';
+    }
+
+    $gameStage.className = 'game-stage';
+    if (textPos === 'upper') $gameStage.classList.add('show-upper-text');
+    if (textPos === 'lower') $gameStage.classList.add('show-lower-text');
+    if (hasPortraitUp) $gameStage.classList.add('show-upper-portrait');
+    if (hasPortraitDown) $gameStage.classList.add('show-lower-portrait');
+
+    const $targetWin = textPos === 'upper' ? $textwinUp : $textwinDown;
+    $targetWin.appendChild($gameText);
+    $targetWin.appendChild($pageInd);
+
+    $portraitUpLabel.textContent = hasPortraitUp ? r.portrait : 'Portrait';
+    $portraitUpLabel.className = 'gs-label' + (hasPortraitUp ? ' has-name' : '');
+    $portraitDownLabel.textContent = hasPortraitDown ? r.portrait : 'Portrait';
+    $portraitDownLabel.className = 'gs-label' + (hasPortraitDown ? ' has-name' : '');
+
+    $areaName.textContent = isMapName ? r.text.trim() : '';
+
     // Render game text display
+    const renderSource = getRenderSource(r);
     const lang = $langMode.value;
-    const useEnglish = (lang === 'english' && r.english) || false;
-    const displayRaw = useEnglish ? r.english : r.raw;
-    const pages = parsePages(displayRaw, useEnglish);
+    const useEnglish = renderSource.useEnglish;
+    const pages = parsePages(renderSource.source, renderSource.isPlainText, renderSource.playerName);
     if (currentPage >= pages.length) currentPage = 0;
 
     renderPage(pages[currentPage] || []);
@@ -241,29 +305,17 @@
 
     // Block metadata
     renderMetadata(r);
-
-    // Control code tags
-    renderTags(r.tags);
+    renderValidation(r);
 
     // Raw text
     $rawText.textContent = r.raw;
-
-    // Portrait
-    $portraitLabel.textContent = r.portrait || 'Portrait';
-    if (r.portrait) {
-      $portraitLabel.style.color = 'var(--c-cyan)';
-      $portraitLabel.style.fontSize = '0.65rem';
-    } else {
-      $portraitLabel.style.color = '';
-      $portraitLabel.style.fontSize = '';
-    }
   }
 
   /**
    * Parse tagged text into pages. Each page is an array of lines.
    * Each line is an array of {text, colorClass} segments.
    */
-  function parsePages(raw, isPlainText) {
+  function parsePages(raw, isPlainText, playerName) {
     if (isPlainText) {
       // English translation — plain text, split into one page
       const lines = raw.split('\n').map(line => [{ text: line, colorClass: 'c-default' }]);
@@ -294,7 +346,7 @@
         } else if (tag.startsWith('Color')) {
           currentColor = COLOR_MAP[tag] || 'c-default';
         } else if (tag === 'PlayerName') {
-          currentLine.push({ text: 'ストックマン', colorClass: currentColor });
+          currentLine.push({ text: playerName, colorClass: currentColor });
         } else if (tag.startsWith('Spaces')) {
           const n = parseInt(tag.substring(6), 10) || 1;
           currentLine.push({ text: '\u3000'.repeat(n), colorClass: currentColor });
@@ -315,7 +367,16 @@
       } else {
         // Regular text
         if (tok) {
-          currentLine.push({ text: tok, colorClass: currentColor });
+          const parts = tok.split('\n');
+          parts.forEach((part, idx) => {
+            if (part) {
+              currentLine.push({ text: part, colorClass: currentColor });
+            }
+            if (idx < parts.length - 1) {
+              currentPageLines.push(currentLine);
+              currentLine = [];
+            }
+          });
         }
       }
     }
@@ -374,9 +435,8 @@
   function changePage(delta) {
     if (filtered.length === 0) return;
     const r = filtered[currentIndex];
-    const lang = $langMode.value;
-    const useEnglish = (lang === 'english' && r.english) || false;
-    const pages = parsePages(useEnglish ? r.english : r.raw, useEnglish);
+    const renderSource = getRenderSource(r);
+    const pages = parsePages(renderSource.source, renderSource.isPlainText, renderSource.playerName);
     const newPage = currentPage + delta;
     if (newPage >= 0 && newPage < pages.length) {
       currentPage = newPage;
@@ -393,6 +453,7 @@
       ['Portrait', r.portrait || '—'],
       ['Window', r.window || '—'],
       ['Translated', r.english ? 'Yes' : 'No'],
+      ['Warnings', r.validation ? r.validation.issueCount : 0],
     ];
 
     $blockMeta.innerHTML = pairs.map(([k, v]) =>
@@ -400,34 +461,32 @@
     ).join('');
   }
 
-  function renderTags(tags) {
-    $tagList.innerHTML = '';
-    if (!tags || tags.length === 0) {
-      $tagList.innerHTML = '<span style="color:var(--muted);font-size:0.75rem">None</span>';
+  function renderValidation(r) {
+    const validation = r.validation || { issueCount: 0, issues: [] };
+    const widthLimit = validation.widthLimit == null ? 'Special UI block' : `${validation.widthLimit} cells`;
+
+    if (!r.english) {
+      $validationSummary.textContent = `No English translation to validate yet. Width target: ${widthLimit}.`;
+      $validationIssues.innerHTML = '';
       return;
     }
 
-    // Deduplicate but keep order
-    const seen = new Set();
-    for (const t of tags) {
-      if (seen.has(t)) continue;
-      seen.add(t);
+    $validationSummary.textContent =
+      `Width target: ${widthLimit} · ` +
+      `English pages: ${validation.pageCount || 0} / Japanese pages: ${validation.rawPageCount || 0} · ` +
+      `Max line: ${validation.maxLineUnits || 0} cells`;
 
-      const chip = document.createElement('span');
-      chip.className = 'tag-chip ' + getTagClass(t);
-      chip.textContent = t;
-      $tagList.appendChild(chip);
+    if (!validation.issueCount) {
+      $validationIssues.innerHTML = '<li class="validation-item ok">No validator warnings for this block.</li>';
+      return;
     }
-  }
 
-  function getTagClass(tag) {
-    if (tag.startsWith('Color')) return 'tag-color';
-    if (tag.startsWith('Voice') || tag.startsWith('Mouth')) return 'tag-voice';
-    if (tag.startsWith('Portrait')) return 'tag-portrait';
-    if (tag.startsWith('Window')) return 'tag-window';
-    if (tag === 'LN' || tag === 'Input' || tag === 'Clear' || tag.startsWith('Wait')) return 'tag-flow';
-    if (tag.startsWith('Cmd') || tag.startsWith('Ctrl')) return 'tag-cmd';
-    return '';
+    $validationIssues.innerHTML = validation.issues.map(issue =>
+      `<li class="validation-item ${esc(issue.severity || 'warning')}">` +
+        `<span class="validation-severity">${esc((issue.severity || 'warning').toUpperCase())}</span>` +
+        `<span>${esc(issue.message)}</span>` +
+      `</li>`
+    ).join('');
   }
 
   // ── Tabs ─────────────────────────────────────────
@@ -448,9 +507,10 @@
     // Group records by file
     const byFile = {};
     for (const r of allRecords) {
-      if (!byFile[r.file]) byFile[r.file] = { path: r.path, total: 0, translated: 0 };
+      if (!byFile[r.file]) byFile[r.file] = { path: r.path, total: 0, translated: 0, warnings: 0 };
       byFile[r.file].total++;
       if (r.english) byFile[r.file].translated++;
+      if (r.validation) byFile[r.file].warnings += r.validation.issueCount;
     }
 
     for (const [file, info] of Object.entries(byFile).sort((a, b) => a[0].localeCompare(b[0]))) {
@@ -460,7 +520,7 @@
       card.innerHTML =
         `<div class="file-card-name">${esc(file)}</div>` +
         `<div class="file-card-path">${esc(info.path)}</div>` +
-        `<div class="file-card-stats">${info.total} blocks · ${info.translated} translated</div>` +
+        `<div class="file-card-stats">${info.total} blocks · ${info.translated} translated · ${info.warnings} warning${info.warnings === 1 ? '' : 's'}</div>` +
         `<div class="file-card-bar"><div class="file-card-bar-fill" style="width:${pct}%"></div></div>`;
 
       card.addEventListener('click', () => {
@@ -486,6 +546,25 @@
     return (...args) => {
       clearTimeout(timer);
       timer = setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  function getRenderSource(record) {
+    const lang = $langMode.value;
+    if (lang === 'english' && (record.englishRaw || record.english)) {
+      return {
+        useEnglish: true,
+        source: record.englishRaw || record.english,
+        isPlainText: !record.englishRaw,
+        playerName: 'Stockman',
+      };
+    }
+
+    return {
+      useEnglish: false,
+      source: record.raw,
+      isPlainText: false,
+      playerName: 'ストックマン',
     };
   }
 

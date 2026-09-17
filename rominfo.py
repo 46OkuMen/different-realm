@@ -8,7 +8,13 @@ FILES = ['MAIN.EXE',]
 
 FILE_BLOCKS = {}
 
-DATA_BIN_FILES = ['ITEM.TOS', 'MONSTER.TOS', 'NAME.TOS', 'WORD.TOS']
+DATA_BIN_FILES = ['ITEM.TOS', 'NAME.TOS']
+# MONSTER.TOS and WORD.TOS look like DATA.BIN segments (and get concatenated into
+# DATA.BIN by write_data_tos() same as the others) but their actual on-disk format is
+# 'tmp.PA' + block-numbered entries -- the same format TALK/MAP .TOS files use -- not
+# the plain '\x00'-separated string list ITEM.TOS/NAME.TOS use. They must go through
+# encode()/decode_tos(), not encode_data_tos()/decode_data_tos(), or the block-number
+# framing is lost and the re-encoded file is structurally wrong.
 
 DATA_BIN_MAP = {
     'beginning': 0x0,
