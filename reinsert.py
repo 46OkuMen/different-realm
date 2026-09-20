@@ -1,11 +1,13 @@
+import glob
 import os
 import sys
 import tempfile
 from pathlib import Path
 from shutil import copyfile
-from rominfo import SRC_DISK, DEST_DISK, DATA_BIN_FILES, NAMES, CTRL, SPEED_INCREASES
+from rominfo import SRC_DISK, DEST_DISK, DATA_BIN_FILES, DATA_BIN_LIST_FILES, NAMES, CTRL, SPEED_INCREASES
 from romtools.disk import Disk, Gamefile, Block
 from romtools.dump import DumpExcel
+from ndc import NDCFileNotFoundError
 from glodia import tos
 from build_script_viewer_data import (
     PLAYER_NAME_EN,
@@ -97,8 +99,15 @@ SAVE_PATH_IN_DISK = os.path.join('REALM', 'SAVE')
 # and override this default; every other TALK\*.TOS file uses SUB_T (see should_check
 # usage at the encode-size check, in reinsert()).
 SUB_T_BUDGET = 0x1000
+# INIT.ASM loads ETC\DATA.BIN whole into I_WORK (COMM.H: E000-FFFF, 8k), the end of
+# the segment -- but the visual-scene overlays (DEMO*.ASM / END.ASM via VISUAL.H) use
+# 6000:FF00+ as scratch variables (AAA EQU 0FF00H ...), so anything past FF00 gets
+# clobbered during cutscenes. The original DATA.BIN is 7766 bytes (ends at FE56).
+DATA_BIN_BUDGET = 0x1F00
 TALK_PACK_BUDGETS = {
     'HELP.TOS': 0x0800,    # MCT_T: 9800-9FFF (2k)
+    'INFO.TOS': 0x0800,    # MCT_T too (MENU.ASM INFO_LOAD)
+    'INFP.TOS': 0x0800,    # MCT_T too (MENU.ASM INFO_LOAD)
     'SYSTEM.TOS': 0x1000,  # SYS_T: C000-CFFF (4k)
 }
 
@@ -177,10 +186,31 @@ assert len(STOCKMAN) == NAME_VISIBLE_LEN
 assert len(STOCKMAN_BUFFER) == NAME_BUFFER_LEN
 assert FASTEST_TEXT_SPEED in SPEED_INCREASES
 
-FILES_TO_REINSERT = ['databin_files\\NAME.TOS', 'MAIN.EXE', 'TALK\\AT01.TOS', 'TALK\\AT02.TOS', 'TALK\\SYSTEM.TOS', 'TALK\\HELP.TOS',
-                     'MAP\\AM01.TOS',  'databin_files\\WORD.TOS',
-                     'CMAKE.BIN']
-#FILES_TO_REINSERT = ['MAP\\AM01.TOS']
+def translated_tos_files():
+    """Every TALK/MAP .TOS file the workbook has at least one real translation for
+    (dump_tos.py pre-fills the English column with the Japanese, so "English !=
+    Japanese" is what counts as translated). Files with no English are left as the
+    original Japanese -- inserting them would only cost build time."""
+    files = []
+    for folder in ('TALK', 'MAP'):
+        for path in sorted(glob.glob(os.path.join('original', 'REALM', folder, '*.TOS'))):
+            name = os.path.basename(path)
+            if '_parsed' in name or '_encoded' in name:
+                continue
+            try:
+                rows = Dump.get_translations(name, include_blank=False)
+            except KeyError:
+                continue   # no sheet for this file
+            if any(t.english and t.english != t.japanese for t in rows):
+                files.append(os.path.join(folder, name))
+    return files
+
+
+FILES_TO_REINSERT = ([os.path.join('databin_files', 'NAME.TOS'), 'MAIN.EXE']
+                     + translated_tos_files()
+                     + [os.path.join('databin_files', n) for n in
+                        ('WORD.TOS', 'ITEM.TOS', 'MONSTER.TOS')]
+                     + ['CMAKE.BIN'])
 #DIETED_FILES = []
 
 
@@ -454,6 +484,41 @@ def migrate_save_name_buffers():
 
     return changed
 
+# Prebuilt files inserted as-is. RLMFR.IMG is the side-panel logo with the
+# original's "Diffelent Realm" typo fixed; it was only ever inserted into the old
+# patched image by hand (no script regenerates it -- pict.py's RLMFR.IMG output is
+# a different, 272-byte experiment), so it's kept here now that every build starts
+# from a fresh copy of the original disk.
+ASSET_FILES = [
+    (os.path.join('assets', 'RLMFR.IMG'), os.path.join('REALM', 'ETC')),
+]
+
+
+def start_from_fresh_disk():
+    """Rebuild the patched image from a fresh copy of the original every run, so
+    nothing from earlier builds or experiments lingers on it. (Before this, the
+    image was only ever patched in place: stale copies of AT03.TOS, ST01.TOS and
+    RLMFR.IMG from old experiments, plus an orphaned split file AT20.TOS, were
+    still on it, and the corrupted AT03 made the Perphena leader's house fail
+    with "Err 2900" -- talk block 41 not found.) The player's save files are the
+    only thing carried over; migrate_save_name_buffers() then updates them as
+    usual. Pass --keep-disk to patch the existing image in place instead."""
+    keep = ['FILE.DAT'] + save_slot_names()
+    carried = []
+    with tempfile.TemporaryDirectory() as temp_dir:
+        if os.path.isfile(DEST_DISK):
+            for name in keep:
+                try:
+                    TargetDiffRealm.extract(name, path_in_disk=SAVE_PATH_IN_DISK, dest_path=temp_dir)
+                    carried.append(name)
+                except NDCFileNotFoundError:
+                    pass
+        copyfile(SRC_DISK, DEST_DISK)
+        for name in carried:
+            TargetDiffRealm.insert(os.path.join(temp_dir, name), path_in_disk=SAVE_PATH_IN_DISK)
+    print(f'Fresh patched image from {SRC_DISK}; carried over {len(carried)} save files.')
+
+
 def reinsert(filename):
     path_in_disk = os.path.join('REALM', filename)
     dir_in_disk, just_filename = os.path.split(path_in_disk)
@@ -469,6 +534,35 @@ def reinsert(filename):
     elif filename == 'CMAKE.BIN':
         patch_cmake_bin(gf)
         gf.write(path_in_disk=dir_in_disk, dest_path=patched_path_for(filename))
+
+    elif just_filename in DATA_BIN_LIST_FILES:
+        # Index-addressed string list: substitute whole entries (one per line), never
+        # substrings, so e.g. '回避力' can't match inside '攻撃・回避力'.
+        parsed_filename = os.path.join('patched', just_filename.replace('.TOS', '_parsed.TOS'))
+        tos.decode_data_list(gf_path, parsed_filename)
+        with open(parsed_filename, 'rb') as f:
+            lines = f.read().split(b'\n')
+        print(filename)
+        translations = {}
+        for t in Dump.get_translations(just_filename, include_blank=True):
+            translations.setdefault(t.japanese, []).append(t)
+        for i in range(1, len(lines)):
+            queue = translations.get(lines[i])
+            if not queue:
+                continue
+            t = queue.pop(0)
+            if not should_translate(just_filename):
+                continue
+            if t.english == BLANK_MARKER:
+                lines[i] = b''
+            elif t.english:
+                lines[i] = t.english
+        leftover = [t.japanese for q in translations.values() for t in q]
+        assert not leftover, f'{just_filename}: workbook rows matched no entry: {leftover!r}'
+        translated_parsed_filename = parsed_filename.replace('_parsed.TOS', '_translated.TOS')
+        with open(translated_parsed_filename, 'wb') as f:
+            f.write(b'\n'.join(lines))
+        tos.encode_data_list(translated_parsed_filename, patched_path_for(filename), gf_path)
 
     elif filename.split('\\')[-1] in DATA_BIN_FILES:
         parsed_filename = gf_path.replace('.TOS', '_parsed.TOS')
@@ -497,6 +591,10 @@ def reinsert(filename):
     elif 'DATA.BIN' in filename:
         tos.write_data_tos('original\\REALM\\ETC\\DATA.BIN', 'patched\\ETC\\DATA.BIN')
         dest_filename = os.path.join('patched', filename)
+        databin_size = os.path.getsize(dest_filename)
+        assert databin_size <= DATA_BIN_BUDGET, (
+            f'DATA.BIN is {databin_size} bytes, over its {DATA_BIN_BUDGET}-byte I_WORK buffer')
+        print(f'DATA.BIN: {databin_size}/{DATA_BIN_BUDGET} bytes')
         gf = Gamefile(dest_filename, disk=OriginalDiffRealm, dest_disk=TargetDiffRealm)
         gf.write(path_in_disk='REALM\\ETC')
 
@@ -514,12 +612,6 @@ def reinsert(filename):
         for t in Dump.get_translations(just_filename, include_blank=True):
             #print(filename, t.location, t.japanese)
             if parsed_gf.filestring.count(t.japanese) < 1:
-                # WORD.TOS's workbook sheet was dumped against the old, structurally
-                # wrong decode_data_tos()-based parse (see rominfo.py's DATA_BIN_FILES
-                # comment); until it's re-dumped with decode_tos(), its rows won't match
-                # and can't be safely substituted. Skip rather than corrupt or crash.
-                if just_filename == 'WORD.TOS':
-                    continue
                 raise AssertionError(
                     f'{just_filename}: workbook Japanese text not found in parsed source '
                     f'(block {t.location}): {t.japanese!r}'
@@ -529,7 +621,15 @@ def reinsert(filename):
                 parsed_gf.filestring = parsed_gf.filestring.replace(t.japanese, b'', 1)
             elif t.english and should_translate(just_filename):
                 if t.suffix:
-                    t.english += bytes(t.suffix, encoding='shift_jis')
+                    # dump_tos.py records a row's trailing control codes as its Suffix but
+                    # they also stay in the parsed file right after the Japanese, which
+                    # this replace() leaves untouched -- so appending the suffix again
+                    # would double them ([Input][Input] = two keypresses, [LN][LN] = a
+                    # blank line). Only append a suffix the original doesn't already have.
+                    suffix = bytes(t.suffix, encoding='shift_jis')
+                    at = parsed_gf.filestring.find(t.japanese) + len(t.japanese)
+                    if not parsed_gf.filestring[at:].startswith(suffix):
+                        t.english += suffix
 
                 if (just_filename, t.location) not in TEXT_SPEED_EXEMPT:
                     t.english = apply_test_text_speed(t.english)
@@ -590,7 +690,7 @@ def reinsert(filename):
 
             encoded_gf = Gamefile(result_dest_filename, disk=OriginalDiffRealm,
                                   dest_disk=TargetDiffRealm)
-            if encoded_gf.filename[1] == 'T' or encoded_gf.filename in ['SYSTEM.TOS', 'HELP.TOS']:
+            if encoded_gf.filename[1] == 'T' or encoded_gf.filename in ['SYSTEM.TOS', 'HELP.TOS', 'INFO.TOS', 'INFP.TOS']:
                 encoded_gf.write(path_in_disk='REALM\\TALK')
             elif encoded_gf.filename[1] == 'M':
                 encoded_gf.write(path_in_disk='REALM\\MAP')
@@ -618,6 +718,10 @@ def reinsert(filename):
 
 
 if __name__ == '__main__':
+    if '--keep-disk' not in sys.argv:
+        start_from_fresh_disk()
+    for asset_path, path_in_disk in ASSET_FILES:
+        TargetDiffRealm.insert(asset_path, path_in_disk=path_in_disk)
     copyfile('original/REALM/ETC/DATA.BIN', 'patched\\ETC\\DATA.BIN')
     migrate_save_name_buffers()
 

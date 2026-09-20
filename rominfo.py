@@ -8,13 +8,16 @@ FILES = ['MAIN.EXE',]
 
 FILE_BLOCKS = {}
 
-DATA_BIN_FILES = ['ITEM.TOS', 'NAME.TOS']
-# MONSTER.TOS and WORD.TOS look like DATA.BIN segments (and get concatenated into
-# DATA.BIN by write_data_tos() same as the others) but their actual on-disk format is
-# 'tmp.PA' + block-numbered entries -- the same format TALK/MAP .TOS files use -- not
-# the plain '\x00'-separated string list ITEM.TOS/NAME.TOS use. They must go through
-# encode()/decode_tos(), not encode_data_tos()/decode_data_tos(), or the block-number
-# framing is lost and the re-encoded file is structurally wrong.
+DATA_BIN_FILES = ['NAME.TOS']
+# WORD/ITEM/MONSTER.TOS are all in the source's `.STRING` PAC list format
+# (8-byte header, a block-number byte of 100, then 00-terminated entries the game
+# looks up by index -- see RE_S/WORD.PAC in the source), but they also contain
+# 01/03/04 control codes ([LN], [Color6]/[FW], half-width space) that
+# decode_data_tos() doesn't understand. DATA_BIN_LIST_FILES go through
+# tos.decode_data_list()/encode_data_list() instead, which handle those. WORD and
+# ITEM round-trip byte-exact; MONSTER re-encodes a few kanji as the equivalent
+# 0x02xx dictionary tokens (irrelevant once it's all English).
+DATA_BIN_LIST_FILES = ['WORD.TOS', 'ITEM.TOS', 'MONSTER.TOS']
 
 DATA_BIN_MAP = {
     'beginning': 0x0,

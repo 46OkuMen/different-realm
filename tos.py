@@ -454,6 +454,94 @@ def decode_data_tos(filename):
             f.write(b)
             f.write(b'\n')
 
+def _decode_data_list_entry(data, i):
+    """
+        Decodes one 00-terminated DATA.BIN list entry starting at data[i]. Returns
+        (parsed_bytes, index just past the terminating 00).
+    """
+    out = b''
+    while i < len(data) and data[i] != 0:
+        b = data[i]
+        if b == 1:
+            out += b'[LN]'
+            i += 1
+        elif b == 4:
+            out += b' '
+            i += 1
+        elif b in (2, 3):
+            key = data[i:i+2]
+            val = CTRL.get(key)
+            if val is None:
+                out += b'[Ctrl' + binascii.hexlify(key) + b']'
+            else:
+                out += val.replace(b'\r', b'').replace(b'\n', b'')
+            i += 2
+        elif 22 <= b <= 32:
+            out += MARKS[b]
+            i += 1
+        elif 33 <= b <= 79:
+            jis = data[i:i+2]
+            out += jis_to_sjis.get(jis, b'[weird JIS %i %i]' % (jis[0], jis[1]))
+            i += 2
+        elif 80 <= b <= 89:
+            out += b'\x82' + bytes([b - 1])
+            i += 1
+        elif 90 <= b <= 172:
+            out += b'\x82' + bytes([b + 69])
+            i += 1
+        elif b >= 173:
+            second = b - 109
+            if second >= 0x7f:
+                second += 1
+            out += b'\x83' + bytes([second])
+            i += 1
+        else:
+            out += b'[Ctrl' + binascii.hexlify(bytes([b])) + b']'
+            i += 1
+    return out, i + 1
+
+
+def decode_data_list(filename, dest_filename=None):
+    """
+        Parses a DATA.BIN list segment in the source's `.STRING` PAC format
+        (WORD.TOS, MONSTER.TOS, ...): an 8-byte header, one block-number byte
+        (always 100), then 00-terminated entries that the game looks up by index.
+
+        Output: first line is '{100}', then one entry per line. The entry count and
+        order must be preserved on re-encode, since the game indexes by position.
+    """
+    if dest_filename is None:
+        dest_filename = filename.replace('.TOS', '_parsed.TOS')
+    with open(filename, 'rb') as f:
+        data = f.read()
+    lines = [b'{%i}' % data[8]]
+    i = 9
+    while i < len(data):
+        entry, i = _decode_data_list_entry(data, i)
+        lines.append(entry)
+    with open(dest_filename, 'wb') as f:
+        f.write(b'\n'.join(lines) + b'\n')
+
+
+def encode_data_list(filename, dest_filename, header_source_filename):
+    """
+        Inverse of decode_data_list(). The 8-byte header is copied verbatim from
+        header_source_filename (the original segment).
+    """
+    with open(filename, 'rb') as f:
+        lines = f.read().split(b'\n')
+    if lines and lines[-1] == b'':
+        lines = lines[:-1]
+    with open(header_source_filename, 'rb') as f:
+        header = f.read(8)
+    block_num = int(lines[0].strip().lstrip(b'{').rstrip(b'}'))
+    out = bytearray(header) + bytes([block_num])
+    for entry in lines[1:]:
+        out += encode_block_body(entry, filename) + b'\x00'
+    with open(dest_filename, 'wb') as f:
+        f.write(out)
+
+
 def decode_tos(filename):
     """
         Decode an open TOS file object and write a parsed one.
@@ -938,20 +1026,30 @@ def split_oversized_talk_file(base_filename, parsed_bytes, budget, directory, us
 
     new_names = [find_free_pack_slot(family_letter, directory, used_slots) for _ in bins]
 
-    # cut_predecessor edits are applied wherever that block ends up -- which
-    # might be the base file, or another extracted unit entirely.
-    pending_cuts = {}  # predecessor_block_num -> (dest_filename_4char, target_block)
+    # Where every block ends up: an extracted unit's new file, or the base file.
+    base_name = base_filename[:-4] if base_filename.upper().endswith('.TOS') else base_filename
+    location = {n: base_name for n in order}
     entry_to_name = {}
     for name, group in zip(new_names, bins):
         for unit in group:
+            for n in unit['blocks']:
+                location[n] = name
             for n in unit['entry_blocks']:
                 entry_to_name[n] = name
-            if unit['cut_predecessor'] is not None:
-                # cut_predecessor is only ever set on a chain fragment (see
-                # _fragment_chain), whose blocks list is in chain order --
-                # blocks[0] is exactly the entry this predecessor used to
-                # JUMP_T/CALL_T straight into.
-                pending_cuts[unit['cut_predecessor']] = (name, unit['blocks'][0])
+
+    # A chain cut only needs a PACK_T when its two sides end up in different
+    # files -- and that can happen in either direction: the later fragment
+    # moved out, *or* the earlier one moved out while the later one stayed
+    # (e.g. AT02: blocks 2-11 moved to a new file, 12-14 stayed, and block 11's
+    # JUMP_T 12 would otherwise point into a file that no longer has block 12).
+    # cut_predecessor is only ever set on a chain fragment (see
+    # _fragment_chain), whose blocks list is in chain order -- blocks[0] is
+    # exactly the entry the predecessor used to JUMP_T/CALL_T straight into.
+    pending_cuts = {}  # predecessor_block_num -> (dest_filename_4char, target_block)
+    for unit in units:
+        pred = unit['cut_predecessor']
+        if pred is not None and location[pred] != location[unit['blocks'][0]]:
+            pending_cuts[pred] = (location[unit['blocks'][0]], unit['blocks'][0])
 
     def emit_body(n):
         body = blocks[n]

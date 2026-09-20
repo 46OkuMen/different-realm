@@ -112,3 +112,6 @@ script_viewer/viewer-data.js
 /*.IMG
 DR_lab.png
 RLMFR.png
+
+# np2core harness save-state cache
+automation/states/

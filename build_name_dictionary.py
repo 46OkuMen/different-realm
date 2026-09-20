@@ -13,8 +13,13 @@ Slot numbers matter: still-untranslated Japanese text keeps referring to the ori
 slots (1 = ストックマン, 3 = シーセア, ...), and those references display whatever
 English is in that slot. So each name goes in the slot of its original Japanese entry;
 names with no original entry go in the reserve ("予備"/"未使用") slots. Every other slot
-is left blank, which keeps its original Japanese (reinsert.py skips blank cells), so
-untranslated lines that use it still render correctly.
+is written as [BLANK] (an empty entry; the slot count and numbering are unchanged).
+NAME.TOS lives in DATA.BIN, which has almost no free space (reinsert.py's
+DATA_BIN_BUDGET), and those ~550 bytes of unused Japanese words are what make room
+for English item and monster names. The cost: untranslated Japanese lines that
+reference a blanked slot print nothing for that word -- but untranslated kana
+already renders as garbage in the patched build (its bytes are the ASCII font range).
+Set BLANK_UNUSED_SLOTS = False to keep the Japanese instead.
 
 Matching is a raw substring match (no word boundaries), longest entry first. Before
 adding a name, check it doesn't occur inside ordinary English words (e.g. "Prim" would
@@ -31,6 +36,7 @@ import openpyxl
 WORKBOOK_PATH = 'DiffRealm_Text.xlsx'
 TOTAL_SLOTS = 123  # index 0 is reserved for [PlayerName] and never touched
 TOKEN_BASE = 0x16
+BLANK_UNUSED_SLOTS = True
 
 CHARACTER_NAMES = {
     # Original Japanese name slots
@@ -62,7 +68,8 @@ def write_to_workbook(names):
     wb = openpyxl.load_workbook(WORKBOOK_PATH)
     ws = wb['NAME.TOS']
     for i in range(1, TOTAL_SLOTS):
-        ws.cell(row=i + 2, column=7, value=names.get(i, ''))  # row 2 = index 0, column G = English
+        blank = '[BLANK]' if BLANK_UNUSED_SLOTS else ''
+        ws.cell(row=i + 2, column=7, value=names.get(i, blank))  # row 2 = index 0, column G = English
     wb.save(WORKBOOK_PATH)
     print(f'Wrote {len(names)} names into NAME.TOS and saved {WORKBOOK_PATH}.')
 
